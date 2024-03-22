@@ -4,64 +4,61 @@
 
 [router]
 
-[router.r1]
-path = "json/path/to/switch"
-mac = "00:00:00:01:01:"
-range = 5
-bvmodel = "simple_switch"
-[router.r1.ports]
-port1 = "00:00:00:01:01:01"
-port2 = "00:00:00:01:01:02"
-port3 = "00:00:00:01:01:03"
+	[router.r1]
+	path = "json/path/to/switch"
+	mac = "00:00:00:01:01:"
+	range = 5
+	bvmodel = "simple_switch"
+	[router.r1.ports]
+		port1 = "00:00:00:01:01:01"
+		port2 = "00:00:00:01:01:02"
+		port3 = "00:00:00:01:01:03"
 
-[router.r2]
-path = "json/path/to/switch"
-mac = "00:00:00:01:02:"
-range = 5
-bvmodel = "simple_switch"
-[router.r2.ports]
-port1 = "00:00:00:01:02:01"
-port2 = "00:00:00:01:02:02"
-port3 = "00:00:00:01:02:03"
+	[router.r2]
+	path = "json/path/to/switch"
+	mac = "00:00:00:01:02:"
+	range = 5
+	bvmodel = "simple_switch"
+	[router.r2.ports]
+		port1 = "00:00:00:01:02:01"
+		port2 = "00:00:00:01:02:02"
+		port3 = "00:00:00:01:02:03"
 
 
-[router.r3]
-path = "json/path/to/switch"
-mac = "00:00:00:01:03:"
-range = 5
-bvmodel = "simple_switch"
-[router.r3.ports]
-port1 = "00:00:00:01:03:01"
-port2 = "00:00:00:01:03:02"
-port3 = "00:00:00:01:03:03"
+	[router.r3]
+		path = "json/path/to/switch"
+		mac = "00:00:00:01:03:"
+		range = 5
+		bvmodel = "simple_switch"
+		[router.r3.ports]
+			port1 = "00:00:00:01:03:01"
+			port2 = "00:00:00:01:03:02"
+			port3 = "00:00:00:01:03:03"
 
 
 [switch]
 #The switch uses the same mac address as the servers and the router
-[switch.s1]
-mac = "00:00:00:02:00:"
-range = 5
-[switch.s1.ports]
-port1 = "00:00:00:01:01:01"
-port2 = "00:00:00:02:00:01"
-port3 = "00:00:00:02:00:02"
-port4 = "00:00:00:02:00:03"
+	[switch.s1]
+	range = 5
+	[switch.s1.ports]
+		port1 = "00:00:00:01:01:01"
+		port2 = "00:00:00:02:00:01"
+		port3 = "00:00:00:02:00:02"
+		port4 = "00:00:00:02:00:03"
 
-[switch.s2]
-mac = "00:00:00:02:00:"
-range = 5
-[switch.s2.ports]
-port1 = "00:00:00:01:02:01"
-port2 = "00:00:00:02:00:04"
-port3 = "00:00:00:02:00:05"
-port4 = "00:00:00:02:00:06"
+	[switch.s2]
+	range = 5
+	[switch.s2.ports]
+		port1 = "00:00:00:01:02:01"
+		port2 = "00:00:00:02:00:04"
+		port3 = "00:00:00:02:00:05"
+		port4 = "00:00:00:02:00:06"
 
-[switch.s3]
-mac = "00:00:00:02:00:"
-range = 5
-[switch.s3.ports]
-port1 = "00:00:00:01:03:01"
-port2 = "00:00:00:02:00:07"
-port3 = "00:00:00:02:00:08"
-port4 = "00:00:00:02:00:09"
+	[switch.s3]
+	range = 5
+	[switch.s3.ports]
+		port1 = "00:00:00:01:03:01"
+		port2 = "00:00:00:02:00:07"
+		port3 = "00:00:00:02:00:08"
+		port4 = "00:00:00:02:00:09"
 
