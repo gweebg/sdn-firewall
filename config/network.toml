@@ -2,63 +2,250 @@
 # mac : xx:xx:xx:device:id:port
 # range : number of phisical ports
 
-[router]
 
-	[router.r1]
-	path = "json/path/to/switch"
-	mac = "00:00:00:01:01:"
-	range = 5
-	bvmodel = "simple_switch"
-	[router.r1.ports]
-		port1 = "00:00:00:01:01:01"
-		port2 = "00:00:00:01:01:02"
-		port3 = "00:00:00:01:01:03"
+# Network summary
+[network]
+hosts = 9
+switches = 3
+routers = 3
 
-	[router.r2]
-	path = "json/path/to/switch"
-	mac = "00:00:00:01:02:"
-	range = 5
-	bvmodel = "simple_switch"
-	[router.r2.ports]
-		port1 = "00:00:00:01:02:01"
-		port2 = "00:00:00:01:02:02"
-		port3 = "00:00:00:01:02:03"
+# Common configuration settings for hosts and routers
+[common]
+cls_host = "P4Host"
+bvmodel = "simple_switch"
+cls_switch = "OVSKernelSwitch"
+cls_router = "P4Switch"
 
+# Host configurations
+[[hosts]]
+name = "h1"
+ip = "10.0.1.10"
+cls = "${common.cls_host}"
+mac = "00:00:00:02:00:01"
+ports = ["00:00:00:02:00:01"]
 
-	[router.r3]
-		path = "json/path/to/switch"
-		mac = "00:00:00:01:03:"
-		range = 5
-		bvmodel = "simple_switch"
-		[router.r3.ports]
-			port1 = "00:00:00:01:03:01"
-			port2 = "00:00:00:01:03:02"
-			port3 = "00:00:00:01:03:03"
+[[hosts]]
+name = "h2"
+ip = "10.0.1.20"
+cls = "${common.cls_host}"
+mac = "00:00:00:02:00:02"
+ports = ["00:00:00:02:00:02"]
 
+[[hosts]]
+name = "h3"
+ip = "10.0.1.100"
+cls = "${common.cls_host}"
+mac = "00:00:00:02:00:03"
+ports = ["00:00:00:02:00:03"]
 
-[switch]
-#The switch uses the same mac address as the servers and the router
-	[switch.s1]
-	range = 5
-	[switch.s1.ports]
-		port1 = "00:00:00:01:01:01"
-		port2 = "00:00:00:02:00:01"
-		port3 = "00:00:00:02:00:02"
-		port4 = "00:00:00:02:00:03"
+[[hosts]]
+name = "h4"
+ip = "10.0.2.10"
+cls = "${common.cls_host}"
+mac = "00:00:00:02:00:04"
+ports = ["00:00:00:02:00:04"]
 
-	[switch.s2]
-	range = 5
-	[switch.s2.ports]
-		port1 = "00:00:00:01:02:01"
-		port2 = "00:00:00:02:00:04"
-		port3 = "00:00:00:02:00:05"
-		port4 = "00:00:00:02:00:06"
+[[hosts]]
+name = "h5"
+ip = "10.0.2.20"
+cls = "${common.cls_host}"
+mac = "00:00:00:02:00:05"
+ports = ["00:00:00:02:00:05"]
 
-	[switch.s3]
-	range = 5
-	[switch.s3.ports]
-		port1 = "00:00:00:01:03:01"
-		port2 = "00:00:00:02:00:07"
-		port3 = "00:00:00:02:00:08"
-		port4 = "00:00:00:02:00:09"
+[[hosts]]
+name = "h6"
+ip = "10.0.2.100"
+cls = "${common.cls_host}"
+mac = "00:00:00:02:00:06"
+ports = ["00:00:00:02:00:06"]
 
+[[hosts]]
+name = "h7"
+ip = "10.0.3.10"
+cls = "${common.cls_host}"
+mac = "00:00:00:02:00:07"
+ports = ["00:00:00:02:00:07"]
+
+[[hosts]]
+name = "h8"
+ip = "10.0.3.20"
+cls = "${common.cls_host}"
+mac = "00:00:00:02:00:08"
+ports = ["00:00:00:02:00:08"]
+
+[[hosts]]
+name = "h9"
+ip = "10.0.3.100"
+cls = "${common.cls_host}"
+mac = "00:00:00:02:00:09"
+ports = ["00:00:00:02:00:09"]
+
+# Router configurations
+[[routers]]
+name = "r1"
+json_path = "json/simple-router.json"
+thrift_port = 9090
+bvmodel = "${common.bvmodel}"
+cls = "${common.cls_router}"
+range = 5
+ip_ports = ["10.0.1.1"]
+ports = ["00:00:00:01:01:01", "00:00:00:01:01:02", "00:00:00:01:01:03"]
+
+[[routers]]
+name = "r2"
+json_path = "json/simple-router.json"
+thrift_port = 9091
+bvmodel = "${common.bvmodel}"
+cls = "${common.cls_router}"
+range = 5
+ip_ports = ["10.0.2.1"]
+ports = ["00:00:00:01:02:01", "00:00:00:01:02:02", "00:00:00:01:02:03"]
+
+[[routers]]
+name = "r3"
+json_path = "json/simple-router.json"
+thrift_port = 9092
+bvmodel = "${common.bvmodel}"
+cls = "${common.cls_router}"
+range = 5
+ip_ports = ["10.0.3.1"]
+ports = ["00:00:00:01:03:01", "00:00:00:01:03:02", "00:00:00:01:03:03"]
+
+# Switch configurations
+[[switches]]
+name = "s1"
+range = 5
+cls = "${common.cls_switch}"
+ports = ["00:00:a1:01:01:01", "00:00:a1:02:00:01", "00:00:a1:02:00:02", "00:00:a1:02:00:03"]
+
+[[switches]]
+name = "s2"
+range = 5
+cls = "${common.cls_switch}"
+ports = ["00:00:a2:01:02:01", "00:00:a2:02:00:04", "00:00:a2:02:00:05", "00:00:a2:02:00:06"]
+
+[[switches]]
+name = "s3"
+range = 5
+cls = "${common.cls_switch}"
+ports = ["00:00:a3:01:03:01", "00:00:a3:02:00:07", "00:00:a3:02:00:08", "00:00:a3:02:00:09"]
+
+[[links]]
+device1 = "h1"
+port1 = 1
+mac1 = "00:00:00:02:00:01"
+device2 = "s1"
+port2 = 2
+mac2 = "00:00:a1:02:00:01"
+
+[[links]]
+device1 = "h2"
+port1 = 1
+mac1 = "00:00:00:02:00:02"
+device2 = "s1"
+port2 = 3
+mac2 = "00:00:a1:02:00:02"
+
+[[links]]
+device1 = "h3"
+port1 = 1
+mac1 = "00:00:00:02:00:03"
+device2 = "s1"
+port2 = 4
+mac2 = "00:00:a1:02:00:03"
+
+[[links]]
+device1 = "r1"
+port1 = 1
+mac1 = "00:00:00:01:01:01"
+device2 = "s1"
+port2 = 1
+mac2 = "00:00:a1:01:01:01"
+
+[[links]]
+device1 = "h4"
+port1 = 1
+mac1 = "00:00:00:02:00:04"
+device2 = "s3"
+port2 = 2
+mac2 = "00:00:a3:02:00:04"
+
+[[links]]
+device1 = "h5"
+port1 = 1
+mac1 = "00:00:00:02:00:05"
+device2 = "s3"
+port2 = 3
+mac2 = "00:00:a3:02:00:05"
+
+[[links]]
+device1 = "h6"
+port1 = 1
+mac1 = "00:00:00:02:00:06"
+device2 = "s3"
+port2 = 4
+mac2 = "00:00:a3:02:00:06"
+
+[[links]]
+device1 = "r3"
+port1 = 1
+mac1 = "00:00:00:01:03:01"
+device2 = "s3"
+port2 = 1
+mac2 = "00:00:a3:01:03:01"
+
+[[links]]
+device1 = "h7"
+port1 = 1
+mac1 = "00:00:00:02:00:07"
+device2 = "s2"
+port2 = 2
+mac2 = "00:00:a2:02:00:07"
+
+[[links]]
+device1 = "h8"
+port1 = 1
+mac1 = "00:00:00:02:00:08"
+device2 = "s2"
+port2 = 3
+mac2 = "00:00:a2:02:00:08"
+
+[[links]]
+device1 = "h9"
+port1 = 1
+mac1 = "00:00:00:02:00:09"
+device2 = "s2"
+port2 = 4
+mac2 = "00:00:a2:02:00:09"
+
+[[links]]
+device1 = "r2"
+port1 = 1
+mac1 = "00:00:00:01:02:01"
+device2 = "s2"
+port2 = 1
+mac2 = "00:00:a2:01:02:01"
+
+[[links]]
+device1 = "r1"
+port1 = 3
+mac1 = "00:00:00:01:01:03"
+device2 = "r3"
+port2 = 3
+mac2 = "00:00:00:01:03:03"
+
+[[links]]
+device1 = "r2"
+port1 = 3
+mac1 = "00:00:00:01:02:03"
+device2 = "r3"
+port2 = 2
+mac2 = "00:00:00:01:03:02"
+
+[[links]]
+device1 = "r1"
+port1 = 2
+mac1 = "00:00:00:01:01:02"
+device2 = "r2"
+port2 = 2
+mac2 = "00:00:00:01:02:02"
