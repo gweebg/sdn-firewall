@@ -1,0 +1,81 @@
+# Subtitle: Configuration file for the network
+# mac : xx:xx:xx:device:id:port
+# range : number of phisical ports
+
+
+# Network summary
+[network]
+hosts = 2
+routers = 2
+links = 3
+
+# Common configuration settings for hosts and routers
+[common]
+cls_host = "P4Host"
+bvmodel = "simple_switch"
+cls_router = "P4Switch"
+
+# Host configurations
+[[hosts]]
+name = "h1"
+ip = "10.0.1.10/24"
+cls = "${common.cls_host}"
+mac = "00:00:00:02:00:01"
+switch_mac = "00:00:00:01:01:01"
+switch_ip = "10.0.1.1"
+ports = ["00:00:00:02:00:01"]
+
+[[hosts]]
+name = "h2"
+ip = "10.0.2.10/24"
+cls = "${common.cls_host}"
+mac = "00:00:00:02:00:02"
+switch_mac = "00:00:00:01:02:01"
+switch_ip = "10.0.2.1"
+ports = ["00:00:00:02:00:02"]
+
+# Router configurations
+[[routers]]
+name = "r1"
+json_path = "json/simple-router.json"
+thrift_port = 9090
+bvmodel = "${common.bvmodel}"
+cls = "${common.cls_router}"
+range = 5
+ip_ports = ["10.0.1.1/24"]
+ports = ["00:00:00:01:01:01", "00:00:00:01:01:02"]
+
+[[routers]]
+name = "r2"
+json_path = "json/simple-router.json"
+thrift_port = 9091
+bvmodel = "${common.bvmodel}"
+cls = "${common.cls_router}"
+range = 5
+ip_ports = ["10.0.2.1/24"]
+ports = ["00:00:00:01:02:01", "00:00:00:01:02:02"]
+
+# Links between devices
+[[links]]
+device1 = "h1"
+port1 = 1
+mac1 = "00:00:00:02:00:01"
+device2 = "r1"
+port2 = 1
+mac2 = "00:00:00:01:01:01"
+
+[[links]]
+device1 = "h2"
+port1 = 1
+mac1 = "00:00:00:02:00:02"
+device2 = "r2"
+port2 = 1
+mac2 = "00:00:00:01:02:01"
+
+[[links]]
+device1 = "r1"
+port1 = 2
+mac1 = "00:00:00:01:01:02"
+device2 = "r2"
+port2 = 2
+mac2 = "00:00:00:01:02:02"
