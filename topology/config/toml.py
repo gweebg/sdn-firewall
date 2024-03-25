@@ -1,6 +1,6 @@
+import re
+from datetime import datetime
 import toml
-
-devices = ["router", "switch", "host"]
 
 class EthPort:
     def __init__(self, port,mac):
@@ -12,16 +12,16 @@ class EthPort:
 
 
 class Link:
-    def __init__(self, device1, port1, device2, port2, mac1, mac2):
-        self.device1 = device1
-        self.port1 = port1
-        self.mac1 = mac1
-        self.device2 = device2
-        self.port2 = port2
-        self.mac2 = mac2
+    def __init__(self, data):
+        # ignore data field
+        self.initialized = True
 
     def __str__(self):
-        return f"Link {self.device1} <-> {self.device2}\n\tPort {self.port1}: Mac {self.mac1}\n\tPort {self.port2}: Mac {self.mac2}\n"
+        string = f"Link"
+        for atribute in self.__dict__:
+            if not atribute == "initialized":
+                string += f"\n\t{atribute}: {self.__dict__[atribute]}"
+        return string
 
     def __repr__(self):
         return self.__str__()
@@ -108,15 +108,6 @@ class Host(Device):
 
         return (string + "\n")
 
-def parse_links(data):
-    links = []
-    for link_data in data:
-        link = Link(link_data['device1'], link_data['port1'], link_data['device2'], link_data['port2'], link_data['mac1'], link_data['mac2'])       
-        links.append(link)
-    return links
-
-
-
 def parser(device_type, data):
     device_list = []
     for device_data in data:
@@ -134,36 +125,51 @@ def parser(device_type, data):
     return device_list
 
 def mapper(device_type,data):
-    match device_type:
-        case "router":
-            return Router(data)
-        case "switch":
-            return Switch(data)
-        case "host":
-            return Host(data)
-        case _:
-            return None
+    map_ = {
+        "router": Router,
+        "switch": Switch,
+        "host": Host,
+        "link": Link
+    }
+    return map_[device_type](data)
 
+def apply_dynamic_common_settings(devices, common_settings):
+    # Regular expression to find placeholders like ${common.entry}
+    placeholder_pattern = re.compile(r'\$\{common\.(\w+)\}')
 
-def apply_common_settings(devices, common_settings):
+    def replace_placeholders(value):
+        """Replace placeholders in a given value with the corresponding common setting."""
+        if isinstance(value, str):
+            matches = placeholder_pattern.findall(value)
+            for match in matches:
+                if match in common_settings:
+                    replacement = common_settings[match]
+                    # If the replacement is not a string, convert it appropriately
+                    if not isinstance(replacement, str):
+                        if isinstance(replacement, (int, float, bool)):
+                            replacement = str(replacement)
+                        elif isinstance(replacement, datetime):
+                            replacement = replacement.isoformat()
+                        # Lists and dictionaries are not expected to be interpolated into strings directly
+                    # Replace the whole placeholder string if it's the only thing in the value
+                    if value == f"${{common.{match}}}":
+                        return replacement
+                    else:
+                        value = value.replace(f"${{common.{match}}}", replacement)
+            return value
+        elif isinstance(value, list):
+            # If the value is a list, iterate over each item
+            return [replace_placeholders(item) for item in value]
+        else:
+            # Non-string, non-list values are returned as is
+            return value
+
     for device_type, device_list in devices.items():
         for device in device_list:
-            # Apply 'cls_host' to hosts
-            if device_type == 'host' and 'cls_host' in common_settings:
-                device.cls = common_settings['cls_host']
-            
-            # Apply 'bvmodel' to routers
-            if device_type == 'router' and 'bvmodel' in common_settings:
-                device.bvmodel = common_settings['bvmodel']
-            
-            # Apply 'cls_switch' to switches
-            if device_type == 'switch' and 'cls_switch' in common_settings:
-                device.cls = common_settings['cls_switch']
-            
-            # Apply 'cls_router' (assuming you might want this for customization)
-            # Adjust this part based on how you intend to use 'cls_router'
-            if device_type == 'router' and 'cls_router' in common_settings:
-                device.cls = common_settings['cls_router']
+            for attribute in list(vars(device)):
+                original_value = getattr(device, attribute)
+                replaced_value = replace_placeholders(original_value)
+                setattr(device, attribute, replaced_value)
 
 
 def devices(path):
@@ -171,6 +177,7 @@ def devices(path):
         data = toml.load(f)
 
     devices_dict = {}
+    links = []
     common_settings = data.get('common', {})
 
     # Parsing each device type
@@ -180,13 +187,32 @@ def devices(path):
         devices_dict['router'] = parser("router", data['routers'])
     if 'switches' in data:
         devices_dict['switch'] = parser("switch", data['switches'])
-    
-    # Apply common settings
-    apply_common_settings(devices_dict, common_settings)
-
-    # Parse links
     if 'links' in data:
-        links = parse_links(data['links'])
+        links = parser("link", data['links'])
+
+    # Apply common settings
+    apply_dynamic_common_settings(devices_dict, common_settings)
+
+    # Validate number of devices and links
+    ## Validate hosts
+    host_numbers = data.get('network', {}).get('hosts', 0)
+    if host_numbers != len(devices_dict.get('host', [])):
+        raise ValueError(f"Number of hosts in the configuration ({host_numbers}) does not match the number of hosts generated ({len(devices_dict.get('host', []))})")
+    
+    ## Validate routers
+    router_numbers = data.get('network', {}).get('routers', 0)
+    if router_numbers != len(devices_dict.get('router', [])):
+        raise ValueError(f"Number of routers in the configuration ({router_numbers}) does not match the number of routers generated ({len(devices_dict.get('router', []))})")
+    
+    ## Validate switches
+    switch_numbers = data.get('network', {}).get('switches', 0)
+    if switch_numbers != len(devices_dict.get('switch', [])):
+        raise ValueError(f"Number of switches in the configuration ({switch_numbers}) does not match the number of switches generated ({len(devices_dict.get('switch', []))})")
+    
+    links_numbers = data.get('network', {}).get('links', 0)
+    if links_numbers != len(links):
+        raise ValueError(f"Number of links in the configuration ({links_numbers}) does not match the number of links generated ({len(links)})")
+    
 
     return devices_dict, links
 
