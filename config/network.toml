@@ -1,13 +1,11 @@
 # Subtitle: Configuration file for the network
-# mac : xx:xx:xx:device:id:port
-# range : number of phisical ports
 
-
-# Network summary
+# Network summary used for validation
 [network]
 hosts = 9
 switches = 3
 routers = 3
+links = 15
 
 # Common configuration settings for hosts and routers
 [common]
@@ -19,65 +17,83 @@ cls_router = "P4Switch"
 # Host configurations
 [[hosts]]
 name = "h1"
-ip = "10.0.1.10"
+ip = "10.0.1.10/24"
 cls = "${common.cls_host}"
-mac = "00:00:00:02:00:01"
-ports = ["00:00:00:02:00:01"]
+mac = "00:00:00:02:00:03"
+switch_mac = "00:00:00:01:01:01"
+switch_ip = "10.0.1.1"
+ports = ["00:00:00:02:00:03"]
 
 [[hosts]]
 name = "h2"
-ip = "10.0.1.20"
+ip = "10.0.1.20/24"
 cls = "${common.cls_host}"
 mac = "00:00:00:02:00:02"
+switch_mac = "00:00:00:01:01:01"
+switch_ip = "10.0.1.1"
 ports = ["00:00:00:02:00:02"]
 
 [[hosts]]
 name = "h3"
-ip = "10.0.1.100"
+ip = "10.0.1.100/24"
 cls = "${common.cls_host}"
-mac = "00:00:00:02:00:03"
-ports = ["00:00:00:02:00:03"]
+mac = "00:00:00:02:00:01"
+switch_mac = "00:00:00:01:01:01"
+switch_ip = "10.0.1.1"
+ports = ["00:00:00:02:00:01"]
 
 [[hosts]]
 name = "h4"
-ip = "10.0.2.10"
+ip = "10.0.3.10/24"
 cls = "${common.cls_host}"
 mac = "00:00:00:02:00:04"
+switch_mac = "00:00:00:01:03:01"
+switch_ip = "10.0.3.1"
 ports = ["00:00:00:02:00:04"]
 
 [[hosts]]
 name = "h5"
-ip = "10.0.2.20"
+ip = "10.0.3.20/24"
 cls = "${common.cls_host}"
 mac = "00:00:00:02:00:05"
+switch_mac = "00:00:00:01:03:01"
+switch_ip = "10.0.3.1"
 ports = ["00:00:00:02:00:05"]
 
 [[hosts]]
 name = "h6"
-ip = "10.0.2.100"
+ip = "10.0.3.100/24"
 cls = "${common.cls_host}"
 mac = "00:00:00:02:00:06"
+switch_mac = "00:00:00:01:03:01"
+switch_ip = "10.0.3.1"
 ports = ["00:00:00:02:00:06"]
 
 [[hosts]]
 name = "h7"
-ip = "10.0.3.10"
+ip = "10.0.2.10/24"
 cls = "${common.cls_host}"
 mac = "00:00:00:02:00:07"
+switch_mac = "00:00:00:01:02:01"
+switch_ip = "10.0.2.1"
 ports = ["00:00:00:02:00:07"]
 
 [[hosts]]
 name = "h8"
-ip = "10.0.3.20"
+ip = "10.0.2.20/24"
 cls = "${common.cls_host}"
 mac = "00:00:00:02:00:08"
+switch_mac = "00:00:00:01:02:01"
+switch_ip = "10.0.2.1"
 ports = ["00:00:00:02:00:08"]
 
 [[hosts]]
 name = "h9"
-ip = "10.0.3.100"
+ip = "10.0.2.100/24"
 cls = "${common.cls_host}"
 mac = "00:00:00:02:00:09"
+switch_mac = "00:00:00:01:02:01"
+switch_ip = "10.0.2.1"
 ports = ["00:00:00:02:00:09"]
 
 # Router configurations
@@ -133,7 +149,7 @@ ports = ["00:00:a3:01:03:01", "00:00:a3:02:00:07", "00:00:a3:02:00:08", "00:00:a
 [[links]]
 device1 = "h1"
 port1 = 1
-mac1 = "00:00:00:02:00:01"
+mac1 = "00:00:00:02:00:03"
 device2 = "s1"
 port2 = 2
 mac2 = "00:00:a1:02:00:01"
@@ -149,7 +165,7 @@ mac2 = "00:00:a1:02:00:02"
 [[links]]
 device1 = "h3"
 port1 = 1
-mac1 = "00:00:00:02:00:03"
+mac1 = "00:00:00:02:00:01"
 device2 = "s1"
 port2 = 4
 mac2 = "00:00:a1:02:00:03"
@@ -157,6 +173,7 @@ mac2 = "00:00:a1:02:00:03"
 [[links]]
 device1 = "r1"
 port1 = 1
+ip1 = "10.0.1.1"
 mac1 = "00:00:00:01:01:01"
 device2 = "s1"
 port2 = 1
@@ -189,6 +206,7 @@ mac2 = "00:00:a3:02:00:06"
 [[links]]
 device1 = "r3"
 port1 = 1
+ip1 = "10.0.3.1"
 mac1 = "00:00:00:01:03:01"
 device2 = "s3"
 port2 = 1
@@ -221,6 +239,7 @@ mac2 = "00:00:a2:02:00:09"
 [[links]]
 device1 = "r2"
 port1 = 1
+ip1 = "10.0.2.1"
 mac1 = "00:00:00:01:02:01"
 device2 = "s2"
 port2 = 1
