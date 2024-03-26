@@ -2,8 +2,9 @@ import re
 from datetime import datetime
 import toml
 
+
 class EthPort:
-    def __init__(self, port,mac):
+    def __init__(self, port, mac):
         self.port = port
         self.mac = mac
 
@@ -17,7 +18,7 @@ class Link:
         self.initialized = True
 
     def __str__(self):
-        string = f"Link"
+        string = "Link"
         for atribute in self.__dict__:
             if not atribute == "initialized":
                 string += f"\n\t{atribute}: {self.__dict__[atribute]}"
@@ -31,6 +32,7 @@ class Device:
     def __init__(self, device):
         self.device = device
         self.ports = []
+
     def __str__(self):
         string = f"Device {self.device}"
 
@@ -39,15 +41,15 @@ class Device:
             if not (atribute == "device" or atribute == "ports"):
                 string += f"\n\t{atribute}: {self__dict__[atribute]}"
 
-
         string += "\n\tPorts:"
         for port in self.ports:
             string += f"\n\t\t{port}"
 
-        return (string + "\n")
+        return string + "\n"
 
     def __repr__(self):
         return self.__str__()
+
 
 class Router(Device):
     def __init__(self, device):
@@ -61,12 +63,11 @@ class Router(Device):
             if not (atribute == "device" or atribute == "ports"):
                 string += f"\n\t{atribute}: {self__dict__[atribute]}"
 
-
         string += "\n\tPorts:"
         for port in self.ports:
             string += f"\n\t\t{port}"
 
-        return (string + "\n")
+        return string + "\n"
 
 
 class Switch(Device):
@@ -81,12 +82,11 @@ class Switch(Device):
             if not (atribute == "device" or atribute == "ports"):
                 string += f"\n\t{atribute}: {self__dict__[atribute]}"
 
-
         string += "\n\tPorts:"
         for port in self.ports:
             string += f"\n\t\t{port}"
 
-        return (string + "\n")
+        return string + "\n"
 
 
 class Host(Device):
@@ -101,12 +101,12 @@ class Host(Device):
             if not (atribute == "device" or atribute == "ports"):
                 string += f"\n\t{atribute}: {self__dict__[atribute]}"
 
-
         string += "\n\tPorts:"
         for port in self.ports:
             string += f"\n\t\t{port}"
 
-        return (string + "\n")
+        return string + "\n"
+
 
 def parser(device_type, data):
     device_list = []
@@ -124,18 +124,15 @@ def parser(device_type, data):
         device_list.append(device)
     return device_list
 
-def mapper(device_type,data):
-    map_ = {
-        "router": Router,
-        "switch": Switch,
-        "host": Host,
-        "link": Link
-    }
+
+def mapper(device_type, data):
+    map_ = {"router": Router, "switch": Switch, "host": Host, "link": Link}
     return map_[device_type](data)
+
 
 def apply_dynamic_common_settings(devices, common_settings):
     # Regular expression to find placeholders like ${common.entry}
-    placeholder_pattern = re.compile(r'\$\{common\.(\w+)\}')
+    placeholder_pattern = re.compile(r"\$\{common\.(\w+)\}")
 
     def replace_placeholders(value):
         """Replace placeholders in a given value with the corresponding common setting."""
@@ -178,45 +175,51 @@ def devices(path):
 
     devices_dict = {}
     links = []
-    common_settings = data.get('common', {})
+    common_settings = data.get("common", {})
 
     # Parsing each device type
-    if 'hosts' in data:
-        devices_dict['host'] = parser("host", data['hosts'])
-    if 'routers' in data:
-        devices_dict['router'] = parser("router", data['routers'])
-    if 'switches' in data:
-        devices_dict['switch'] = parser("switch", data['switches'])
-    if 'links' in data:
-        links = parser("link", data['links'])
+    if "hosts" in data:
+        devices_dict["host"] = parser("host", data["hosts"])
+    if "routers" in data:
+        devices_dict["router"] = parser("router", data["routers"])
+    if "switches" in data:
+        devices_dict["switch"] = parser("switch", data["switches"])
+    if "links" in data:
+        links = parser("link", data["links"])
 
     # Apply common settings
     apply_dynamic_common_settings(devices_dict, common_settings)
 
     # Validate number of devices and links
     ## Validate hosts
-    host_numbers = data.get('network', {}).get('hosts', 0)
-    if host_numbers != len(devices_dict.get('host', [])):
-        raise ValueError(f"Number of hosts in the configuration ({host_numbers}) does not match the number of hosts generated ({len(devices_dict.get('host', []))})")
-    
+    host_numbers = data.get("network", {}).get("hosts", 0)
+    if host_numbers != len(devices_dict.get("host", [])):
+        raise ValueError(
+            f"Number of hosts in the configuration ({host_numbers}) does not match the number of hosts generated ({len(devices_dict.get('host', []))})"
+        )
+
     ## Validate routers
-    router_numbers = data.get('network', {}).get('routers', 0)
-    if router_numbers != len(devices_dict.get('router', [])):
-        raise ValueError(f"Number of routers in the configuration ({router_numbers}) does not match the number of routers generated ({len(devices_dict.get('router', []))})")
-    
+    router_numbers = data.get("network", {}).get("routers", 0)
+    if router_numbers != len(devices_dict.get("router", [])):
+        raise ValueError(
+            f"Number of routers in the configuration ({router_numbers}) does not match the number of routers generated ({len(devices_dict.get('router', []))})"
+        )
+
     ## Validate switches
-    switch_numbers = data.get('network', {}).get('switches', 0)
-    if switch_numbers != len(devices_dict.get('switch', [])):
-        raise ValueError(f"Number of switches in the configuration ({switch_numbers}) does not match the number of switches generated ({len(devices_dict.get('switch', []))})")
-    
-    links_numbers = data.get('network', {}).get('links', 0)
+    switch_numbers = data.get("network", {}).get("switches", 0)
+    if switch_numbers != len(devices_dict.get("switch", [])):
+        raise ValueError(
+            f"Number of switches in the configuration ({switch_numbers}) does not match the number of switches generated ({len(devices_dict.get('switch', []))})"
+        )
+
+    links_numbers = data.get("network", {}).get("links", 0)
     if links_numbers != len(links):
-        raise ValueError(f"Number of links in the configuration ({links_numbers}) does not match the number of links generated ({len(links)})")
-    
+        raise ValueError(
+            f"Number of links in the configuration ({links_numbers}) does not match the number of links generated ({len(links)})"
+        )
 
     return devices_dict, links
 
 
 if __name__ == "__main__":
-    print(devices('network.toml'))
-
+    print(devices("network.toml"))
