@@ -8,7 +8,7 @@ This project was developed as a study case for Software Defined Networks course 
 
 ## Installation
 
-Clone the repository
+Clone the repository:
 
 ```bash
   git clone https://github.com/gweebg/sdn-firewall.git
@@ -16,23 +16,23 @@ Clone the repository
 ```
 
 
-Install all required packages with pip
+Install all required packages with `pip`:
 
 ```bash
-  venv .env
+  python -m venv .env
   source .env/bin/activate
   pip install -r requirements.txt
 ```
     
 ## Pipeline
 
-Compile the P4 code.
+Compile the `P4` code:
 
 ```bash
-  p4c-bm2-ss --p4v 16 src/{code}.p4 -o json/{code_file}.json
+  p4c-bm2-ss --p4v 16 src/p4/[file.p4] -o json/[file].json
 ```
 
-Edit the config file to point to the correct `json`.
+Edit the config file to point to the correct `json`:
 
 ```toml
 # Router configurations
@@ -43,24 +43,24 @@ thrift_port = 9090
 (...)
 ```
 
-Run the mininet topology.
+Run the mininet topology:
 ```bash
-  sudo python3 topology [config.file]
+  sudo python topology --config [config_filepath]
 ```
 
-Define the switches flows.
+Define the switches flows with `action=normal` since we don't have a network controller:
 
 ```bash
   sh ovs-ofctl add-flow {switch} action=normal
 ```
 
-Create the `commands_{router}.txt` for each router and upload them.
+Create the `commands/{router}.txt` for each router and upload them via their respective thrift servers:
 
 ```bash
-  simple_switch_CLI --thrift-port [thrift_port] < commands_{router}.txt
+  simple_switch_CLI --thrift-port [thrift_port] < src/p4/commands/{router}.txt
 ```
 
-Ping the hosts.
+Test the topology by pinging the hosts:
 
 ```bash
   h1 ping h2
@@ -69,13 +69,13 @@ Ping the hosts.
 ## Topology
 
 ![Topology](.extra/topology.png)
-## Usage/Examples
 
+## Usage/Examples
 
 Running the program requires `sudo` due to how [Mininet](http://mininet.org/) works.
 
 ```bash
-  sudo python3 topology [config.file]
+  sudo python3 topology --config [config_filepath]
 ```
 
 Config file `config/network.toml` layout example
