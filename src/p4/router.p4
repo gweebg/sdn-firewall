@@ -53,10 +53,12 @@ header ipv4_t {
     ip4Addr_t dstAddr;
 }
 
-/**
-header tcp_t {
+header ports_t{
     bit<16> srcPort;
     bit<16> dstPort;
+}
+
+header tcp_t {
     bit<32> seqNo;
     bit<32> ackNo;
     bit<4>  dataOffset; // how long the TCP header is
@@ -67,7 +69,11 @@ header tcp_t {
     bit<16> checksum;
     bit<16> urgentPtr;
 }
-*/
+
+// header udp_t {
+//     bit<16> length_;
+//     bit<16> checksum;
+// }
 
 /**
 * You can use this structure to pass 
@@ -82,7 +88,8 @@ struct metadata {
 struct headers {
     ethernet_t   ethernet;
     ipv4_t       ipv4;
-    //tcp_t        tcp;
+    ports_t      ports;
+    tcp_t        tcp;
 }
 
 /*************************************************************************
@@ -112,11 +119,25 @@ parser MyParser(packet_in packet,
         }
     }
 
-		state parse_ipv4 {
-			packet.extract(hdr.ipv4); // extract function populates the ipv4 header
-			transition accept;
-			}
+    state parse_ipv4 {
+        packet.extract(hdr.ipv4); // extract function populates the ipv4 header
+        transition select(hdr.ipv4.protocol) {
+            TYPE_TCP: parse_tcp;
+            TYPE_UDP:  parse_udp;
+            default: accept;
+        }
+    }
 
+    state parse_tcp {
+        packet.extract(hdr.ports); // extract function populates the ports header
+        packet.extract(hdr.tcp);
+        transition accept;
+    }
+
+    state parse_udp {
+        packet.extract(hdr.ports); // extract function populates the ports header
+        transition accept;
+    }
 }
 
 /*************************************************************************
@@ -150,9 +171,9 @@ control MyIngress(inout headers hdr,
 				hdr.ipv4.dstAddr : lpm; 
 			} 
 			actions = {
-				ipv4_fwd; drop;
+				ipv4_fwd; drop; NoAction;
 			}
-			default_action = drop(); // NoAction is defined in vlmodel - does nothing
+			default_action = NoAction(); // NoAction is defined in vlmodel - does nothing
 		}
 
 		action rewrite_src_mac (macAddr_t src_mac) {
@@ -186,11 +207,11 @@ control MyIngress(inout headers hdr,
 
 
     apply {
-			if (hdr.ipv4.isValid()) {
-				ipv4_lpm.apply () ;
-				src_mac.apply();
-				dst_mac.apply ();
-				}
+        if (hdr.ipv4.isValid()) {
+            ipv4_lpm.apply () ;
+            src_mac.apply ();
+            dst_mac.apply ();
+            }
     }
 }
 
@@ -201,7 +222,23 @@ control MyIngress(inout headers hdr,
 control MyEgress(inout headers hdr,
                  inout metadata meta,
                  inout standard_metadata_t standard_metadata) {
-    apply { /* do nothing */ }
+
+    table fwall_rules {
+        key = { 
+            hdr.ipv4.dstAddr : lpm;
+            hdr.ipv4.srcAddr : lpm;
+            hdr.ipv4.protocol : exact;
+            hdr.ports.dstPort : exact;
+        }
+        actions = {
+            NoAction;
+            drop; 
+        }
+        default_action = drop;
+    }
+    apply { 
+        fwall_rules.apply();
+    }
 }
 
 /*************************************************************************
