@@ -3,6 +3,9 @@
 Mininet Topology for TechSecure Network
 """
 
+# Default libraries
+import argparse as argument_parsing
+
 # Mininet required libraries
 from mininet.cli import CLI
 from mininet.log import setLogLevel
@@ -10,13 +13,9 @@ from mininet.net import Mininet
 from mininet.node import OVSKernelSwitch
 from mininet.topo import Topo
 
-# Default libraries
-import argparse as argument_parsing
-
 # User defined libraries
-from p4.mininet import P4Host, P4Switch
-
 from config.toml import devices
+from p4.mininet import P4Host, P4Switch
 
 
 class TechSecure(Topo):
@@ -109,6 +108,31 @@ class TechSecure(Topo):
                 )
 
 
+def init_topology(net: Mininet, devs: dict) -> None:
+
+    print("=" * 25 + " Topology Initialization " + "=" * 25)
+
+    # Initialize ARP and default routes
+    for host in devs["host"]:
+        node = net.get(host.name)
+        node.setARP(host.switch_ip, host.switch_mac)
+        node.setDefaultRoute("dev eth0 via " + host.switch_ip)
+
+    # Define OpenVSwitch rules for each switch
+    for switch in devs["switch"]:
+        sw = net.get(switch.name)
+        sw.cmd(f"ovs-ofctl add-flow {sw.name} action=normal")
+        print(f"ovs-ofctl add-flow {sw.name} action=normal")
+
+    # Inject commands into P4 routers
+    for router in devs["router"]:
+        r = net.get(router.name)
+        r.cmd(f"simple_switch_CLI --thrift-port {router.thrift_port} < src/p4/commands/{router.name}.txt")
+        print(f"injected {router.name}.txt into router '{router.name}'")
+
+    print("=" * 75)
+
+
 def main(arguments):
     try:
         (devices_, links) = devices(arguments.config)
@@ -122,10 +146,7 @@ def main(arguments):
     net = Mininet(topo=topology, controller=None)
     net.start()
 
-    for host in devices_["host"]:
-        node = net.get(host.name)
-        node.setARP(host.switch_ip, host.switch_mac)
-        node.setDefaultRoute("dev eth0 via " + host.switch_ip)
+    init_topology(net, devices_)
 
     CLI(net)
     net.stop()
