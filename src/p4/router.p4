@@ -14,6 +14,8 @@ const bit<16> TYPE_IPV4 = 0x800;
 const bit<8> TYPE_TCP  = 0x06;
 const bit<8> TYPE_UDP  = 0x11;
 
+#define BLOOM_FILTER_ENTRIES 4096
+
 /*************************************************************************
 *********************** H E A D E R S  ***********************************
 *************************************************************************/
@@ -58,17 +60,24 @@ header ports_t{
     bit<16> dstPort;
 }
 
-header tcp_t {
+header tcp_t{
     bit<32> seqNo;
     bit<32> ackNo;
-    bit<4>  dataOffset; // how long the TCP header is
-    bit<3>  res;
-    bit<3>  ecn;        // Explicit congestion notification
-    bit<6>  ctrl;       // URG,ACK,PSH,RST,SYN,FIN
+    bit<4>  dataOffset;
+    bit<4>  res;
+    bit<1>  cwr;
+    bit<1>  ece;
+    bit<1>  urg;
+    bit<1>  ack;
+    bit<1>  psh;
+    bit<1>  rst;
+    bit<1>  syn;
+    bit<1>  fin;
     bit<16> window;
     bit<16> checksum;
     bit<16> urgentPtr;
 }
+
 
 header udp_t {
     bit<16> length_;
@@ -83,6 +92,12 @@ header udp_t {
 */
 struct metadata {
     ip4Addr_t   next_hop_ipv4;
+    bit<32> register_position_one;
+    bit<32> register_position_two;
+
+    bit<1> register_cell_one;
+    bit<1> register_cell_two;
+    bit<1> default_rules_allowed;
 }
 /* all the headers previously defined */
 struct headers {
@@ -158,6 +173,9 @@ control MyVerifyChecksum(inout headers hdr, inout metadata meta) {
 control MyIngress(inout headers hdr,
                   inout metadata meta,
                   inout standard_metadata_t standard_metadata) {
+
+    register<bit<1>>(BLOOM_FILTER_ENTRIES) bloom_filter;
+
     action drop() {
         mark_to_drop(standard_metadata);
     }
@@ -206,18 +224,66 @@ control MyIngress(inout headers hdr,
         }
         default_action = drop;
     }
+
+    action set_return_allowed(){
+        hash(meta.register_position_one, HashAlgorithm.crc16, (bit<32>)0, {hdr.ipv4.srcAddr,
+                                                                            hdr.ipv4.dstAddr,
+                                                                            hdr.ports.srcPort,
+                                                                            hdr.ports.dstPort,
+                                                                            hdr.ipv4.protocol},
+                                                                        (bit<32>)BLOOM_FILTER_ENTRIES);
+
+        hash(meta.register_position_two, HashAlgorithm.crc32, (bit<32>)0, {hdr.ipv4.srcAddr,
+                                                                            hdr.ipv4.dstAddr,
+                                                                            hdr.ports.srcPort,
+                                                                            hdr.ports.dstPort,
+                                                                            hdr.ipv4.protocol},
+                                                                        (bit<32>)BLOOM_FILTER_ENTRIES);
+        bloom_filter.write(meta.register_position_one, 1);
+        bloom_filter.write(meta.register_position_two, 1);
+    }
+
+    action check_allow_return(){
+        //Get register position
+        hash(meta.register_position_one, HashAlgorithm.crc16, (bit<32>)0, {hdr.ipv4.dstAddr,
+                                                                                hdr.ipv4.srcAddr,
+                                                                                hdr.ports.dstPort,
+                                                                                hdr.ports.srcPort,
+                                                                                hdr.ipv4.protocol},
+                                                                            (bit<32>)BLOOM_FILTER_ENTRIES);
+
+        hash(meta.register_position_two, HashAlgorithm.crc32, (bit<32>)0, {hdr.ipv4.dstAddr,
+                                                                                hdr.ipv4.srcAddr,
+                                                                                hdr.ports.dstPort,
+                                                                                hdr.ports.srcPort,
+                                                                                hdr.ipv4.protocol},
+                                                                            (bit<32>)BLOOM_FILTER_ENTRIES);
+
+        //Read bloom filter cells to check if there are 1's
+        bloom_filter.read(meta.register_cell_one, meta.register_position_one);
+        bloom_filter.read(meta.register_cell_two, meta.register_position_two);
+    }
+
+    action RulesSuccess(){
+        meta.default_rules_allowed = 1;
+    }
+
+    action RulesBlocked(){
+        meta.default_rules_allowed = 0;
+    }
+
     table fwall_rules {
         key = { 
-            hdr.ipv4.dstAddr : ternary;
             hdr.ipv4.srcAddr : ternary;
+            hdr.ipv4.dstAddr : ternary;
             hdr.ipv4.protocol : exact;
             hdr.ports.dstPort : exact;
         }
         actions = {
-            NoAction;
-            drop; 
+            RulesSuccess;
+            RulesBlocked; 
         }
-        default_action = drop;
+        default_action = RulesBlocked;
     }
 
 
@@ -227,6 +293,16 @@ control MyIngress(inout headers hdr,
             src_mac.apply();
             dst_mac.apply();
             fwall_rules.apply();
+            if (meta.default_rules_allowed == 1 && hdr.tcp.syn == 1){
+                set_return_allowed();
+            } 
+            else if (meta.default_rules_allowed == 0) {
+                check_allow_return();
+                if (meta.register_cell_one != 1 || meta.register_cell_two != 1){
+                    drop();
+                    return;
+                }
+            }
         }
     }
 }

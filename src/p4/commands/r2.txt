@@ -22,5 +22,4 @@ table_add dst_mac rewrite_dst_mac 10.0.2.100 => 00:00:00:02:00:09
 table_add dst_mac rewrite_dst_mac 10.0.1.1 => 00:00:00:01:01:02
 table_add dst_mac rewrite_dst_mac 10.0.3.1 => 00:00:00:01:03:02
 
-table_add fwall_rules NoAction 10.0.2.10&&&255.255.255.255 10.0.1.0&&&255.255.255.0 0x06 80 1 1
-table_add fwall_rules NoAction 10.0.1.0&&&255.255.255.0 10.0.2.10&&&255.255.255.255 0x06 80 1 1
+table_add fwall_rules RulesSuccess 10.0.1.0&&&255.255.255.0 10.0.2.10&&&255.255.255.255 0x06 80 1 1
