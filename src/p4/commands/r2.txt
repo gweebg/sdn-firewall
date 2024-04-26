@@ -2,7 +2,7 @@ reset_state
 table_set_default ipv4_lpm drop
 table_set_default dst_mac drop
 table_set_default src_mac drop
-
+table_set_default check_controlled_networks set_return_allowed
 
 table_add ipv4_lpm ipv4_fwd 10.0.2.10/32 => 10.0.2.10 1
 table_add ipv4_lpm ipv4_fwd 10.0.2.20/32 => 10.0.2.20 1
@@ -22,4 +22,7 @@ table_add dst_mac rewrite_dst_mac 10.0.2.100 => 00:00:00:02:00:09
 table_add dst_mac rewrite_dst_mac 10.0.1.1 => 00:00:00:01:01:02
 table_add dst_mac rewrite_dst_mac 10.0.3.1 => 00:00:00:01:03:02
 
+table_add check_controlled_networks set_needs_fw 10.0.2.0&&&255.255.255.0 1 1
+
 table_add fwall_rules RulesSuccess 10.0.1.0&&&255.255.255.0 10.0.2.10&&&255.255.255.255 0x06 80 1 1
+table_add fwall_rules RulesSuccess 10.0.3.0&&&255.255.255.0 10.0.2.20&&&255.255.255.255 0x06 22 1 1

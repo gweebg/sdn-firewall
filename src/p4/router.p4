@@ -98,6 +98,7 @@ struct metadata {
     bit<1> register_cell_one;
     bit<1> register_cell_two;
     bit<1> default_rules_allowed;
+    bit<1> needs_fw;
 }
 /* all the headers previously defined */
 struct headers {
@@ -197,7 +198,7 @@ control MyIngress(inout headers hdr,
     }
 
     action rewrite_src_mac (macAddr_t src_mac) {
-        hdr.ethernet.srcAddr = src_mac; 
+        hdr.ethernet.srcAddr = src_mac;
     }
 
     table src_mac {
@@ -225,6 +226,10 @@ control MyIngress(inout headers hdr,
         default_action = drop;
     }
 
+    action set_needs_fw() {
+        meta.needs_fw = 1;
+    }
+    
     action set_return_allowed(){
         hash(meta.register_position_one, HashAlgorithm.crc16, (bit<32>)0, {hdr.ipv4.srcAddr,
                                                                             hdr.ipv4.dstAddr,
@@ -241,7 +246,20 @@ control MyIngress(inout headers hdr,
                                                                         (bit<32>)BLOOM_FILTER_ENTRIES);
         bloom_filter.write(meta.register_position_one, 1);
         bloom_filter.write(meta.register_position_two, 1);
+        meta.needs_fw = 0;
     }
+
+    table check_controlled_networks{
+        actions = {
+            set_needs_fw;
+            set_return_allowed;
+        }
+        key = {
+            hdr.ipv4.dstAddr : ternary; 
+        }
+        default_action = set_return_allowed;
+    }
+
 
     action check_allow_return(){
         //Get register position
@@ -292,15 +310,15 @@ control MyIngress(inout headers hdr,
             ipv4_lpm.apply() ;
             src_mac.apply();
             dst_mac.apply();
-            fwall_rules.apply();
-            if (meta.default_rules_allowed == 1 && hdr.tcp.syn == 1){
-                set_return_allowed();
-            } 
-            else if (meta.default_rules_allowed == 0) {
-                check_allow_return();
-                if (meta.register_cell_one != 1 || meta.register_cell_two != 1){
-                    drop();
-                    return;
+            check_controlled_networks.apply();
+            if (meta.needs_fw == 1){
+                fwall_rules.apply();
+                if (meta.default_rules_allowed == 0) {
+                    check_allow_return();
+                    if (meta.register_cell_one != 1 || meta.register_cell_two != 1){
+                        drop();
+                        return;
+                    }
                 }
             }
         }
