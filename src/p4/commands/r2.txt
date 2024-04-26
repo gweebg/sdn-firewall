@@ -4,9 +4,9 @@ table_set_default dst_mac drop
 table_set_default src_mac drop
 
 
-table_add ipv4_lpm ipv4_fwd 10.0.2.10/24 => 10.0.2.10 1
-table_add ipv4_lpm ipv4_fwd 10.0.2.20/24 => 10.0.2.20 1
-table_add ipv4_lpm ipv4_fwd 10.0.2.100/24 => 10.0.2.100 1
+table_add ipv4_lpm ipv4_fwd 10.0.2.10/32 => 10.0.2.10 1
+table_add ipv4_lpm ipv4_fwd 10.0.2.20/32 => 10.0.2.20 1
+table_add ipv4_lpm ipv4_fwd 10.0.2.100/32 => 10.0.2.100 1
 table_add ipv4_lpm ipv4_fwd 10.0.1.0/24 => 10.0.1.1 2
 table_add ipv4_lpm ipv4_fwd 10.0.3.0/24 => 10.0.3.1 3
 
