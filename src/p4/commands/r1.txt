@@ -29,3 +29,5 @@ table_add check_controlled_networks set_needs_fw 10.0.1.0&&&255.255.255.0 1 1
 
 table_add fwall_rules RulesSuccess 10.0.3.0&&&255.255.255.0 10.0.1.10&&&255.255.255.255 0x06 443 1 1
 table_add fwall_rules RulesSuccess 10.0.2.0&&&255.255.255.0 10.0.1.20&&&255.255.255.255 0x06 25 1 1
+table_add fwall RulesSuccess 10.3.0.0&&&255.255.255.255 10.1.0.10&&&255.255.255.255 0x06 443 1 1
+table_add fwall RulesSuccess 10.2.0.0&&&255.255.255.255 10.1.0.20&&&255.255.255.255 0x06 25 1 1

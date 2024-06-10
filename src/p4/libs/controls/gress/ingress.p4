@@ -78,16 +78,17 @@ control MyIngress(inout headers hdr,
         default_action = NoAction;
     }
 
+    
+
     apply {
         if (hdr.ipv4.isValid()) {
             meta.is_response_to_icmp = 0;
             if (hdr.icmp.isValid()){
                 self_icmp.apply();
             }
-            ipv4_lpm.apply() ;
+            ipv4_lpm.apply();
             src_mac.apply();
             dst_mac.apply();
-            
         }
     }
 }

@@ -41,7 +41,6 @@ control MyEgress(inout headers hdr,
             set_return_allowed;
         }
         key = {
-            hdr.ipv4.srcAddr : lpm;
             hdr.ipv4.dstAddr : ternary;
         }
         default_action = set_return_allowed;

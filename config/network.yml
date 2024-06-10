@@ -1,0 +1,140 @@
+defaults:
+  json_path: "json/simple-router.json"
+  bvmodel: "simple_switch"
+  base_thrift_port: 9090
+networks:
+  - id: 1
+    nodes:
+      switches:
+        s1:
+      routers:
+        r1:
+          gateway: true
+          rules:
+            - srcIp:
+                network: 3
+                host: 0
+                mask: 24
+              dstIp:
+                network: 1
+                host: 10
+                mask: 32
+              protocol: "0x06" # TCP
+              port: 443
+            - srcIp:
+                network: 2
+                host: 0
+                mask: 24
+              dstIp:
+                network: 1
+                host: 20
+                mask: 32
+              protocol: "0x06" # TCP
+              port: 25
+          links:
+            - s1
+            - r2
+            - r3
+      hosts:
+        h1:
+          hostIp: "10"
+          links:
+            - s1
+        h2:
+          hostIp: "20"
+          links:
+            - s1
+        h3:
+          hostIp: "100"
+          links:
+            - s1
+  - id: 2
+    nodes:
+      switches:
+        s2:
+      routers:
+        r2:
+          gateway: true
+          rules:
+            - srcIp:
+                network: 1
+                host: 0
+                mask: 24
+              dstIp:
+                network: 2
+                host: 10
+                mask: 32
+              protocol: "0x06" # TCP
+              port: 80
+            - srcIp:
+                network: 3
+                host: 0
+                mask: 24
+              dstIp:
+                network: 2
+                host: 20
+                mask: 32
+              protocol: "0x06" # TCP
+              port: 22
+          links:
+            - s2
+            - r1
+            - r3
+      hosts:
+        h7:
+          hostIp: "10"
+          links:
+            - s2
+        h8:
+          hostIp: "20"
+          links:
+            - s2
+        h9:
+          hostIp: "100"
+          links:
+            - s2
+  - id: 3
+    nodes:
+      switches:
+        s3:
+      routers:
+        r3:
+          gateway: true
+          rules:
+            - srcIp:
+                network: 1
+                host: 0
+                mask: 24
+              dstIp:
+                network: 3
+                host: 10
+                mask: 32
+              protocol: "0x06" # TCP
+              port: 8080
+            - srcIp:
+                network: 2
+                host: 0
+                mask: 24
+              dstIp:
+                network: 3
+                host: 20
+                mask: 32
+              protocol: "0x06" # TCP
+              port: 443
+          links:
+            - s3
+            - r1
+            - r2
+      hosts:
+        h4:
+          hostIp: "10"
+          links:
+            - s3
+        h5:
+          hostIp: "20"
+          links:
+            - s3
+        h6:
+          hostIp: "100"
+          links:
+            - s3

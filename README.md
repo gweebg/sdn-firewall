@@ -61,7 +61,7 @@ Create the `commands/{router}.txt` for each router and upload them via their res
 ```
 
 Test the topology by pinging the hosts:
-
+ff
 ```bash
   h1 ping h2
 ```
