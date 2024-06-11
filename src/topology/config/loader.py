@@ -142,13 +142,15 @@ class Rule():
         return f"\n             src:{self.srcIp} dst:{self.dstIp} proto:{self.protocol} port:{self.Port}"
 
 class Router(NodeL3):
-    def __init__(self, nodeName: str, ip: IP, jsonPath: str, bvModel: str, base_thrift_port: int, networkId: int, isGateway: bool = False, rules: list[Rule] = []):
+    def __init__(self, nodeName: str, ip: IP, jsonPath: str, bvModel: str, base_ports: dict[str, int],  networkId: int, isGateway: bool = False, rules: list[Rule] = []):
         capture = re.match(r"r(\d+)", nodeName)
         self.macDeviceId = int(capture.group(1))
         super().__init__(nodeName, 1, self.macDeviceId, ip, networkId)
         self.json_path = jsonPath
         self.bvmodel = bvModel
-        self.thrift_port = base_thrift_port + self.macDeviceId - 1
+        self.thrift_port = base_ports['base_thrift_port'] + self.macDeviceId - 1
+        self.grpc_port = base_ports['base_grpc_port'] + self.macDeviceId - 1
+        self.cpu_port = base_ports['base_cpu_port'] + self.macDeviceId - 1
         self.isGateway = isGateway
         self.rules = rules
     def __repr__(self):
@@ -158,6 +160,8 @@ class Router(NodeL3):
         res += f"\n         JSON path: {self.json_path}"
         res += f"\n         BV model: {self.bvmodel}"
         res += f"\n         Thrift port: {self.thrift_port}"
+        res += f"\n         GRPC port: {self.grpc_port}"
+        res += f"\n         CPU port: {self.cpu_port}"
         res += f"\n         Gateway: {self.isGateway}"
         res += f"\n         Rules: {self.rules}"
         res += f"\n{spl[1]}"
@@ -193,9 +197,12 @@ class Network():
                 rules.append(Rule(rule))
             json_path = r_body.get("json_path", defaults["json_path"])
             bvmodel = r_body.get("bvmodel", defaults["bvmodel"])
-            base_thrift_port = r_body.get("base_thrift_port", defaults["base_thrift_port"])
+            base_ports = {}
+            base_ports['base_thrift_port'] = r_body.get("base_thrift_port", defaults["base_thrift_port"])
+            base_ports['base_grpc_port'] = r_body.get("base_grpc_port", defaults["base_grpc_port"])
+            base_ports['base_cpu_port'] = r_body.get("base_cpu_port", defaults["base_cpu_port"])
             isGateway = r_body.get("gateway", False)
-            r = Router(r_name, IP(self.netId, 1), json_path, bvmodel, base_thrift_port, self.netId, isGateway, rules)
+            r = Router(r_name, IP(self.netId, 1), json_path, bvmodel, base_ports, self.netId, isGateway, rules)
             self.nodes[r.nodeName] = r
             self.nodesl3[r.nodeName] = r
             self.routers[r.nodeName] = r

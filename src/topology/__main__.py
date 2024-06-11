@@ -15,13 +15,14 @@ from mininet.topo import Topo
 
 # User defined libraries
 from config.loader import getState, State, Host, Router, Switch, PortL3, Rule
-from p4.mininet import P4Host, P4Switch
+from p4.mininet import P4Host, P4Switch, P4RuntimeSwitch
 from autotest.test import testFirewall, testICMP
 
 class TechSecure(Topo):
     CLS_DICT = {
         "P4Host": P4Host,
         "P4Switch": P4Switch,
+        "P4RuntimeSwitch": P4RuntimeSwitch,
         "OVSKernelSwitch": OVSKernelSwitch,
     }
 
@@ -60,10 +61,13 @@ class TechSecure(Topo):
             ips["ip1"] = router_.ip.getCompleteIpWithMask()
             self.__routers[router_.nodeName] = self.addSwitch(
                 router_.nodeName,
-                cls=self.CLS_DICT["P4Switch"],
+                cls=self.CLS_DICT["P4RuntimeSwitch"],
                 sw_path=router_.bvmodel,
                 json_path=router_.json_path,
                 thrift_port=router_.thrift_port,
+                gprc_port=router_.grpc_port,
+                cpu_port=router_.cpu_port,
+                device_id=router_.macDeviceId,
                 **ips,
             )
 

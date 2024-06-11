@@ -2,6 +2,8 @@ defaults:
   json_path: "json/simple-router.json"
   bvmodel: "simple_switch"
   base_thrift_port: 9090
+  base_grpc_port: 10090
+  base_cpu_port: 11090
 networks:
   - id: 1
     nodes:
