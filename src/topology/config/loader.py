@@ -295,4 +295,5 @@ def getState(path: str) -> State:
     state = State(network)
     return state
 
-print(getState("./config/network.yml"))
+if __name__ == "__main__":
+    print(getState("./config/network.yml"))

@@ -13,8 +13,14 @@ sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)),'utils/'
 import p4runtime_lib.bmv2
 import p4runtime_lib.helper
 
-from ..topology.config.loader import getState, State, Host, Router, Switch, PortL3, Rule
+from topology.config.loader import getState, State, Host, Router, Switch, PortL3, Rule
 
+def printGrpcError(e):
+    print("gRPC Error:", e.details(), end=' ')
+    status_code = e.code()
+    print("(%s)" % status_code.name, end=' ')
+    traceback = sys.exc_info()[2]
+    print("[%s:%d]" % (traceback.tb_frame.f_code.co_filename, traceback.tb_lineno))
 
 class TechController:
     def __init__(self, p4info_file: str = None, bmv2_file: str = None, state_file: str = None):
@@ -61,32 +67,32 @@ class TechController:
         r.WriteTableEntry(self.p4info_helper.buildTableEntry(
             table_name="ipv4_lpm",
             default_action=True,
-            action_name="drop"
+            action_name="MyIngress.drop"
         ))
         r.WriteTableEntry(self.p4info_helper.buildTableEntry(
             table_name="dst_mac",
             default_action=True,
-            action_name="drop"
+            action_name="MyIngress.drop"
         ))
         r.WriteTableEntry(self.p4info_helper.buildTableEntry(
             table_name="src_mac",
             default_action=True,
-            action_name="drop"
+            action_name="MyIngress.drop"
         ))
         r.WriteTableEntry(self.p4info_helper.buildTableEntry(
             table_name="check_controlled_networks",
             default_action=True,
-            action_name="set_return_allowed"
+            action_name="MyEgress.set_return_allowed"
         ))
         return r
     
-    def __printCounter(self, router: str, counter_name: str, index: int):
+    def printCounter(self, router: str, counter_name: str, index: int):
         for response in self.runtime_connections[router].ReadCounters(self.p4info_helper.get_counters_id(counter_name), index):
             for entity in response.entities:
                 counter = entity.counter_entry
                 print(f"{router} {counter_name} {index}: {counter.data.packet_count} packets ({counter.data.byte_count} bytes)")
 
-    def __readTableRules(self, router: str):
+    def readTableRules(self, router: str):
         print(f'\n----- Reading tables rules for {router} -----')
         for response in self.runtime_connections[router].ReadTableEntries():
             for entity in response.entities:
@@ -105,70 +111,85 @@ class TechController:
                 print()
 
     ## table_add ipv4_lpm ipv4_fwd 10.0.1.10/32 => 10.0.1.10 1
-    def __injectFwdRules(self, router: str, table_name: str, action_name: str):
-        r = self.routers[router]
-        for l in r.linksL3.values():
-            remotePort: PortL3 = l.getOtherPortFromLocalName(router.nodeName)
-            mask = 24 if remotePort.ip.host == 1 else 32
-            strIp = remotePort.ip.getCompleteIp()
-            table_entry = self.p4info_helper.buildTableEntry(
-                table_name=table_name,
-                match_fields={
-                    "hdr.ipv4.dstAddr": (strIp, mask)
-                },
-                action_name=action_name,
-                action_params={
-                    "nxt_hop": strIp,
-                    "port": l.ports[r.nodeName].portId,
-                })
-            self.runtime_connections[router].WriteTableEntry(table_entry)
-        print(f"Installed FWD rule on {router}")
+    def injectFwdRules(self, router: str, table_name: str, action_name: str):
+        try:
+            r = self.routers[router]
+            for l in r.linksL3.values():
+                remotePort: PortL3 = l.getOtherPortFromLocalName(r.nodeName)
+                mask = 24 if remotePort.ip.host == 1 else 32
+                strIp = remotePort.ip.getCompleteIp()
+                table_entry = self.p4info_helper.buildTableEntry(
+                    table_name=table_name,
+                    match_fields={
+                        "hdr.ipv4.dstAddr": (strIp, mask)
+                    },
+                    action_name=action_name,
+                    action_params={
+                        "nxt_hop": strIp,
+                        "port": l.ports[r.nodeName].portId,
+                    })
+                self.runtime_connections[router].WriteTableEntry(table_entry)
+            return True
+        except grpc.RpcError as e:
+            printGrpcError(e)
+            return False
+        except Exception as e:
+            return False
 
     ##table_add fwall_rules RulesSuccess {rule.srcIp.GetCompleteTernaryFormat()} {rule.dstIp.GetCompleteTernaryFormat()} {rule.protocol} {rule.Port} 1 1
-    def __injectFwallRules(self, router: str, table_name: str, action_name: str):
-        router_ = self.routers[router]
-        for rule in router_.rules:
-            table_entry = self.p4info_helper.buildTableEntry(
-                table_name=table_name,
-                match_fields={
-                    "srcIp": rule.srcIp.GetCompleteTernaryFormat(),
-                    "dstIp": rule.dstIp.GetCompleteTernaryFormat(),
-                    "protocol": rule.protocol,
-                    "Port": rule.Port
-                },
-                action_name=action_name,
-                action_params={},
-                priority=1,
-                timeout=1
-                )
-            self.runtime_connections[router].WriteTableEntry(table_entry)
+    def injectFwallRules(self, router: str, table_name: str, action_name: str):
+        try:
+            router_ = self.routers[router]
+            for rule in router_.rules:
+                table_entry = self.p4info_helper.buildTableEntry(
+                    table_name=table_name,
+                    match_fields={
+                        "hdr.ipv4.srcAddr": rule.srcIp.GetCompleteTernaryFormat(),
+                        "hdr.ipv4.dstAddr": rule.dstIp.GetCompleteTernaryFormat(),
+                        "hdr.ipv4.protocol": int(rule.protocol, 16),
+                        "hdr.ports.dstPort": rule.Port
+                    },
+                    action_name=action_name,
+                    action_params={},
+                    priority=1
+                    )
+                self.runtime_connections[router].WriteTableEntry(table_entry)
+            return True
+        except Exception as e:
+            return False
 
         
-    def __injectSrcMacRules(self, router: str, table_name: str, action_name: str):
-        for port in self.routers[router].ports.values():
-            table_entry = self.p4info_helper.buildTableEntry(
-                table_name=table_name,
-                match_fields={
-                    "standard_metadata.ingress_port": port.portId
-                },
-                action_name=action_name,
-                action_params={
-                    "src_mac": port.mac
-                })
-            self.runtime_connections[router].WriteTableEntry(table_entry)
-        print(f"Installed SRC_MAC rule on {router}")
+    def injectSrcMacRules(self, router: str, table_name: str, action_name: str):
+        try:
+            for port in self.routers[router].ports.values():
+                table_entry = self.p4info_helper.buildTableEntry(
+                    table_name=table_name,
+                    match_fields={
+                        "standard_metadata.egress_spec": port.portId
+                    },
+                    action_name=action_name,
+                    action_params={
+                        "src_mac": port.mac
+                    })
+                self.runtime_connections[router].WriteTableEntry(table_entry)
+            return True
+        except Exception as e:
+            return False
 
-    def __injectDstMacRules(self, router: str, table_name: str, action_name: str):
-        for l in self.routers[router].linksL3.values():
-            remotePort: PortL3 = l.getOtherPortFromLocalName(router)
-            table_entry = self.p4info_helper.buildTableEntry(
-                table_name=table_name,
-                match_fields={
-                    "hdr.ipv4.dstAddr": remotePort.ip.getCompleteIp()
-                },
-                action_name=action_name,
-                action_params={
-                    "dst_mac": remotePort.mac
-                })
-            self.runtime_connections[router].WriteTableEntry(table_entry)
-        print(f"Installed DST_MAC rule on {router}")
+    def injectDstMacRules(self, router: str, table_name: str, action_name: str):
+        try:
+            for l in self.routers[router].linksL3.values():
+                remotePort: PortL3 = l.getOtherPortFromLocalName(router)
+                table_entry = self.p4info_helper.buildTableEntry(
+                    table_name=table_name,
+                    match_fields={
+                        "meta.next_hop_ipv4": remotePort.ip.getCompleteIp()
+                    },
+                    action_name=action_name,
+                    action_params={
+                        "dst_mac": remotePort.mac
+                    })
+                self.runtime_connections[router].WriteTableEntry(table_entry)
+            return True
+        except Exception as e:
+            return False

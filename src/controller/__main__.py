@@ -5,18 +5,18 @@ import sys
 from time import sleep
 
 import grpc
-from p4runtime_lib.error_utils import printGrpcError
-
-from controller.controller import TechController
 
 
 ## IMPORT LIBS FROM SOMEWHERE TO "UTILS" FOLDER
 # TODO: Find a better way to do this
-def import_utils():
-    # Import P4Runtime lib from utils dir
-    # Probably there's a better way of doing this.
-    sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)),'utils/'))
-    pass
+sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)),'utils'))
+# Add the src directory to the system path
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../')))
+
+from p4runtime_lib.error_utils import printGrpcError
+from controller import TechController
+
+
 
 def printGrpcError(e):
     print("gRPC Error:", e.details(), end=' ')
@@ -35,20 +35,32 @@ def main(args: argparse.Namespace):
     try:
         controller = TechController(p4info_file, bmv2_file, state_file) 
 
+        print("=" * 75)
         for router in controller.routers.keys():
-            controller.__injectFwdRules(router, "ipv4_lpm", "ipv4_fwd")
-            controller.__injectSrcMacRules(router, "src_mac", "set_src_mac")
-            controller.__injectDstMacRules(router, "dst_mac", "set_dst_mac")
-            controller.__injectFwallRules(router, "fwall_rules", "RulesSuccess")
-            print(f"Injected all rules on {router}")      
+            print(f"Injecting rules on {router}")
+            fwd = controller.injectFwdRules(router, "ipv4_lpm", "ipv4_fwd")
+            src = controller.injectSrcMacRules(router, "src_mac", "rewrite_src_mac")
+            dst = controller.injectDstMacRules(router, "dst_mac", "rewrite_dst_mac")
+            fwl =controller.injectFwallRules(router, "fwall_rules", "RulesSuccess")
+            print(f"{'Forward: Success' if fwd else 'Forward: Failed'}")
+            print(f"{'Src Mac: Success' if src else 'Src Mac: Failed'}")
+            print(f"{'Dst Mac: Success' if dst else 'Dst Mac: Failed'}")
+            print(f"{'Firewall: Success' if fwl else 'Firewall: Failed'}")
+            if fwd and src and dst and fwl:
+                print(f"Rules injected on {router}")
+            else:
+                print(f"Failed to inject some rules on {router}")
+                            
+            print("=" * 75)    
 
 
         while True:
             sleep(10)
-            print('\n----- Reading counters -----')
+            print('\n----- Reading Rules -----')
+            print("=" * 75)
             for router in controller.routers.keys():
-                controller.__printCounter(router, "MyIngress.c", 0)
-                controller.__printCounter(router, "MyIngress.c", 1)
+                controller.readTableRules(router)
+                print("=" * 75)
 
     except KeyboardInterrupt:
         print(" Shutting down.")
@@ -59,10 +71,10 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='P4Runtime Controller')
     parser.add_argument('--p4info', help='p4info proto in text format from p4c',
                         type=str, action="store", required=False,
-                        default='build/s-router.p4.p4info.txt')
+                        default='json/simple-router.p4.p4info.txt')
     parser.add_argument('--bmv2-json', help='BMv2 JSON file from p4c',
                         type=str, action="store", required=False,
-                        default='build/s-router.json')
+                        default='json/simple-router.json')
     parser.add_argument('--state', help='State file',
                         type=str, action="store", required=False,
                         default='config/network.yml')
