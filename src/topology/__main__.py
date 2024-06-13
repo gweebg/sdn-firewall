@@ -12,9 +12,10 @@ from mininet.log import setLogLevel
 from mininet.net import Mininet
 from mininet.node import OVSKernelSwitch
 from mininet.topo import Topo
+from mininet.clean import Cleanup
 
 # User defined libraries
-from config.loader import getState, State, Host, Router, Switch, PortL3, Rule
+from config.loader import getState, State, Host, Router, Switch, PortL3, Rule, IP
 from p4.mininet import P4Host, P4Switch
 from autotest.test import testFirewall, testICMP
 
@@ -102,39 +103,105 @@ def injectSrcMacRules(router: Router) -> str:
 
 def injectDstMacRules(router: Router) -> str:
     res = "table_set_default dst_mac drop\n"
+    generatedIps = set()
+    localPortToRemoteMac: dict[int, str] = {}
     for l in router.linksL3.values():
         remotePort: PortL3 = l.getOtherPortFromLocalName(router.nodeName)
         res += f"table_add dst_mac rewrite_dst_mac {remotePort.ip.getCompleteIp()} => {remotePort.mac}\n"
-    return res
-
-def injectIPV4FwdRules(router: Router) -> str:
-    res = "table_set_default ipv4_lpm drop\n"
-    for l in router.linksL3.values():
+        generatedIps.add(remotePort.ip.getCompleteIp())
+        localPortToRemoteMac[l.ports[router.nodeName].portId] = remotePort.mac
+    for l in router.forwardingLinks.values():
         remotePort: PortL3 = l.getOtherPortFromLocalName(router.nodeName)
-        mask = 24 if remotePort.ip.host == 1 else 32
-        strIp = remotePort.ip.getCompleteIp()
-        res += f"table_add ipv4_lpm ipv4_fwd {strIp}/{mask} => {strIp} {l.ports[router.nodeName].portId}\n"
+        remIP = remotePort.ip.getCompleteIp()
+        if not remIP in generatedIps:
+            res += f"table_add dst_mac rewrite_dst_mac {remIP} => {localPortToRemoteMac[l.ports[router.nodeName].portId]}\n"
+            generatedIps.add(remIP)
     return res
 
-def injectFwallRules(router: Router) -> str:
+def genSingleRuleForForwarding(strIp: str, mask: int, localPortID: int):
+    return f"table_add ipv4_lpm ipv4_fwd {strIp}/{mask} => {strIp} {localPortID}\n"
+
+def injectIPV4FwdRules(router: Router, state: State, stage: int) -> str:
+    res = "table_set_default ipv4_lpm drop\n"
+    for netID, network in state.networks.items():
+        if netID == router.network:
+            links = [(nl3Name, nl3.linksL3[router.nodeName]) for nl3Name, nl3 in network.nodesl3.items() if nl3Name != router.nodeName]
+            for remoteName, l3 in links:
+                remotePort: PortL3 = l3.ports[remoteName]
+                res += genSingleRuleForForwarding(remotePort.ip.getCompleteIp(), 32, l3.ports[router.nodeName].portId)
+        else:
+            forwardingLink = router.forwardingLinks[netID]
+            remoteIP = forwardingLink.getOtherPortFromLocalName(router.nodeName).ip.getCompleteIp()
+            mask = 32 if network.NATted and stage>1 else 24
+            res += genSingleRuleForForwarding(remoteIP, mask, forwardingLink.ports[router.nodeName].portId)
+    return res
+
+def injectFwallRules(router: Router, stage: int) -> str:
     res = "table_set_default fwall drop\n"
     for rule in router.rules:
-        res += f"table_add fwall_rules RulesSuccess {rule.srcIp.GetCompleteTernaryFormat()} {rule.dstIp.GetCompleteTernaryFormat()} {rule.protocol} {rule.Port} 1 1\n"
+        if stage > 1:
+            res += f"table_add fwall_rules RulesSuccess {rule.srcIp.GetCompleteTernaryFormat()} {rule.dstIp.GetCompleteTernaryFormat()} {rule.protocol} {rule.Port} => {rule.LocalPort} 1\n"
+            res += f"table_add privateToPublicPort setPublicPort {rule.LocalPort} => {rule.Port}\n"
+        else:
+            res += f"table_add fwall_rules RulesSuccess {rule.srcIp.GetCompleteTernaryFormat()} {rule.dstIp.GetCompleteTernaryFormat()} {rule.protocol} {rule.Port} 1 1\n"
     return res
 
-def generateCommandsForRouter(router: Router) -> str:
+def injectPacketDirectionRules(router:Router) -> str:
+    wildcardIP = IP(0, 0, mask=0)
+    wildcardIPStr = wildcardIP.getNetworkTernaryFormat()
+    routerIPStr = router.ip.getNetworkTernaryFormat()
+    res = f"table_add MyIngress.checkPacketDirection setPacketDirection {routerIPStr} {wildcardIPStr} => 1 1\n"
+    res += f"table_add MyIngress.checkPacketDirection setPacketDirection  {wildcardIPStr} {routerIPStr} => 2 1\n"
+    res += f"table_add MyIngress.checkPacketDirection setPacketDirection  {wildcardIPStr} {wildcardIPStr} => 3 1\n"
+    return res
+
+def injectNatRules(router: Router, state: State) -> str:
+    publicIp = router.ip.getCompleteIp()
+    serverId = 0
+    res = f""
+    hosts = state.networks[router.network].hosts.values()
+    maxServerID = sum([h.weight for h in hosts]) - 1
+    for host in state.networks[router.network].hosts.values():
+        w = host.weight
+        hIP = host.ip.getCompleteIp()
+        while w > 0:
+            nextServerId = serverId+1
+            if maxServerID <= serverId or maxServerID == 1:
+                nextServerId = 0
+            res += f"table_add MyEgress.ServerLookup setCurrentServer {serverId} => {hIP} {publicIp} {nextServerId}\n"
+            serverId = nextServerId
+            w-=1
+    return res
+
+def generateCommandsForRouterEtapa1(router: Router, state: State) -> str:
     res = "reset_state\n"
-    res += injectIPV4FwdRules(router) + "\n"
+    res += injectIPV4FwdRules(router, state, 1) + "\n"
     res += injectSrcMacRules(router) + "\n"
     res += injectDstMacRules(router) + "\n"
-    res += f"table_add self_icmp reply_to_icmp {router.ip.getCompleteIp()} 1\n"
-    res += "table_set_default check_controlled_networks set_return_allowed\n"
-    res += f"table_add check_controlled_networks set_needs_fw {router.ip.getNetworkTernaryFormat()} 1 1\n\n"
-    res += injectFwallRules(router)
+    res += injectPacketDirectionRules(router) + "\n"
+    res += injectFwallRules(router, 1)
     return res
         
 
-def init_topology(net: Mininet, state: State) -> None:
+def generateCommandsForRouterEtapa2(router: Router, state: State) -> str:
+    natted = state.networks[router.network].NATted
+    res = "reset_state\n"
+    res += f"table_set_default MyIngress.EnabledFuncsTable setEnabledFuncs 1 {1 if natted else 0}\n"
+    res += injectIPV4FwdRules(router, state, 2) + "\n"
+    res += injectSrcMacRules(router) + "\n"
+    res += injectDstMacRules(router) + "\n"
+    res += f"table_add self_icmp reply_to_icmp {router.ip.getCompleteIp()} 1\n"
+    res += injectPacketDirectionRules(router) + "\n"
+    if natted:
+        res += injectNatRules(router, state) + "\n"
+    res += injectFwallRules(router, 2)
+    return res
+
+def writeCommands(r: Router, strCommands: str):
+    with open(f"config/{r.nodeName}.txt", "w") as f:
+        f.write(strCommands)
+
+def init_topology(net: Mininet, state: State, stage: int) -> None:
 
     print("=" * 25 + " Topology Initialization " + "=" * 25)
 
@@ -143,9 +210,11 @@ def init_topology(net: Mininet, state: State) -> None:
         match node.macDeviceType:
             case 1: # Router
                 r: Router = node
-                s = generateCommandsForRouter(r)
-                with open(f"config/{r.nodeName}.txt", "w") as f:
-                    f.write(s)
+                match stage:
+                    case 1:
+                        writeCommands(r, generateCommandsForRouterEtapa1(r, state))
+                    case 2:
+                        writeCommands(r, generateCommandsForRouterEtapa2(r, state))
                 # mn_node.cmd(f"simple_switch_CLI --thrift-port {mn_node.thrift_port} < src/p4/commands/{mn_node.name}.txt")
                 mn_node.cmd(f"simple_switch_CLI --thrift-port {mn_node.thrift_port} < config/{mn_node.name}.txt")
                 print(f"{mn_node.name}:injected autogenerated config/{mn_node.name}.txt into router '{mn_node.name}'")
@@ -164,25 +233,28 @@ def init_topology(net: Mininet, state: State) -> None:
                 print(f"{mn_node.name}: ovs-ofctl add-flow {mn_node.name} action=normal")
     print("=" * 75)
 
-
-            
                 
 def main(arguments):
     try:
-        s = getState(arguments.config)
-
+        state = getState(arguments.config)
     except Exception as e:
         print(f"Error: {e}")
         return
 
-    topology = TechSecure(s)
+    Cleanup.cleanup() 
+    topology = TechSecure(state)
 
     net = Mininet(topo=topology, controller=None)
     net.start()
 
-    init_topology(net, s)
-    testFirewall(net, s)
-    testICMP(net, s)
+    stage: int = arguments.stage
+    init_topology(net, state, stage)
+
+    test: bool = arguments.test
+    if test:
+        testFirewall(net, state)
+        if stage > 1:
+            testICMP(net, state)
 
     CLI(net)
     net.stop()
@@ -193,9 +265,22 @@ if __name__ == "__main__":
     parser.add_argument(
         "-c",
         "--config",
-        default="config/network.toml",
+        default="config/network.yml",
         help="path to the network configuration file",
         type=str,
+    )
+    parser.add_argument(
+        "-s",
+        "--stage",
+        default=1,
+        help="stage of the project to run",
+        type=int,
+    )
+    parser.add_argument(
+        "-t",
+        "--test",
+        help="test everything on start",
+        action='store_true'
     )
     parser.add_argument(
         "-ll",
@@ -205,7 +290,7 @@ if __name__ == "__main__":
         help="log level",
         type=str,
     )
+    
     args = parser.parse_args()
-
     setLogLevel(args.log_level)
     SystemExit(main(args))

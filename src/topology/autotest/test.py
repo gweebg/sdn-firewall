@@ -1,33 +1,34 @@
 
 from threading import Thread
-from config.loader import State, Rule
+from config.loader import State, Rule, Host, Router, IP
 from mininet.net import Mininet
 
-def serverCMD(dstNode, command):
+def serverCMD(dstNode, command, globalRes):
     result = dstNode.cmd(command)
-    print(result)
+    globalRes += [result]
+
+def getHostsList(s: State, ip: IP) -> list[Host]:
+    net = s.networks[ip.networkId]
+    if ip.host == 0 or (net.NATted and ip.host == 1 and ip.mask == 32):
+        return net.hosts.values()
+    else:
+        return [s.getHostByIP(ip)]
+        
 def testRule(mnet: Mininet, s:State, r: Rule):
     udpFlag = "-u" if r.protocol == "0x11" else ""
-    dstHosts = []
-    srcHosts = []
-    print(f"\n====================Testing rule from: {r.srcIp} to: {r.dstIp} with proto: {r.protocol} on port: {r.Port}====================") 
-    if r.dstIp.host == 0 and r.dstIp.mask == 24:
-        dstHosts = [h for _,h in s.networks[r.dstIp.networkId].hosts.items()]
-    else:
-        dstHosts = [s.getHostByIP(r.dstIp)]
-    if r.srcIp.host == 0 and r.srcIp.mask == 24:
-        srcHosts = [h for _,h in s.networks[r.srcIp.networkId].hosts.items()] 
-    else:
-        srcHosts = [s.getHostByIP(r.srcIp)]
+    dstHosts = getHostsList(s, r.dstIp)
+    srcHosts = getHostsList(s, r.srcIp)
+    print(f"\n====================Testing rule from: {r.srcIp} to: {r.dstIp} with proto: {r.protocol} on port: {r.Port}====================")
     for h in dstHosts:
         dstNode = mnet.get(h.nodeName)
-        serverCommand = f"iperf -s -p {r.Port} {udpFlag} -P {len(srcHosts)} --connect-only"
-        clientCommand = f"nc -z {h.ip.getCompleteIp()} {r.Port} {udpFlag} -v"
+        serverCommand = f"nc -nl {r.Port} {udpFlag} -v"
+        clientCommand = f"nc -z {h.ip.getCompleteIp()} {r.Port} {udpFlag} -w 2 -v"
         clientWrongCommand = f"nc {h.ip.getCompleteIp()} {r.Port+1} {udpFlag} -w 2 -v"
-        t = Thread(target=serverCMD, args=(dstNode, serverCommand))
-        t.start()
-        print(f"{h.nodeName} running iperf server: {serverCommand}")
+        serverResult = []
+        print(f"{h.nodeName} running nc server: {serverCommand}")
         for sH in srcHosts:
+            t = Thread(target=serverCMD, args=(dstNode, serverCommand, serverResult))
+            t.start()
             srcNode = mnet.get(sH.nodeName)
             print(f"Testing {sH.nodeName} <-> {h.nodeName}:")
             print(f"    {sH.nodeName} running wrong command: {clientWrongCommand} -> ", end="")
@@ -35,8 +36,11 @@ def testRule(mnet: Mininet, s:State, r: Rule):
             print("connection timed out correctly" if "timed out" in wrongResult else "WARNING: connection not timed out wrongly(possible problems in firewall rules)")
             print(f"    {sH.nodeName} running correct command: {clientCommand}")
             result = srcNode.cmd(clientCommand)
-        t.join()
-        print(f"===================={h.nodeName} iperf server stopped====================")
+            t.join()
+        serverResult = [element for sublist in [s.split('\n') for s in serverResult] for element in sublist]
+        print('\n'.join([serverResult[0]] + [s for s in serverResult if not "Listening on" in s and s != ""]))
+        print(f"===================={h.nodeName} nc server stopped====================")
+
 
 def testFirewall(mnet: Mininet, s:State):
     print("========================================")
@@ -44,8 +48,9 @@ def testFirewall(mnet: Mininet, s:State):
     print("========================================")
     for _, network in s.networks.items():
         for _, router in network.routers.items():
-            for rule in router.rules:
-                testRule(mnet, s, rule)
+            if not network.NATted:
+                for rule in router.rules:
+                    testRule(mnet, s, rule)
     print("========================================")
     print("========================================")
     print("========================================\n")

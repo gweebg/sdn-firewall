@@ -5,13 +5,20 @@
 * variables inside this structure.
 */
 struct metadata {
-    ip4Addr_t   next_hop_ipv4;
     bit<32> register_position_one;
     bit<32> register_position_two;
+    bit<2> register_cell_one;
+    bit<2> register_cell_two;
 
-    bit<1> register_cell_one;
-    bit<1> register_cell_two;
+    bit<4> packetDirection; // 1:outbound; 2:inbound; 3: passing
+
+    ip4Addr_t   next_hop_ipv4;
+
     bit<1> default_rules_allowed;
-    bit<1> needs_fw;
-    bit<1> is_response_to_icmp;
+
+    bit<2> state;
+
+    fiveTuple tupleToCheck;
+
+    
 }

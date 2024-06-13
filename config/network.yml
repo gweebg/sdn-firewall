@@ -31,6 +31,16 @@ networks:
                 mask: 32
               protocol: "0x06" # TCP
               port: 25
+            - srcIp:
+                network: 4
+                host: 0
+                mask: 24
+              dstIp:
+                network: 1
+                host: 20
+                mask: 32
+              protocol: "0x06" # TCP
+              port: 25
           links:
             - s1
             - r2
@@ -138,3 +148,47 @@ networks:
           hostIp: "100"
           links:
             - s3
+  - id: 4
+    NATted: True
+    nodes:
+      switches:
+        s4:
+      routers: 
+        r4:
+          gateway: true
+          rules:
+            - srcIp:
+                network: 1
+                host: 0
+                mask: 24
+              dstIp:
+                network: 4
+                host: 1
+                mask: 32
+              protocol: "0x06" # TCP
+              port: 80
+              localPort: 85
+          links:
+            - r1
+            - s4
+            - h10
+      hosts:
+        h10:
+          hostIp: "10"
+          weight: 5
+          links:
+            - r4
+        h11:
+          hostIp: "20"
+          weight: 2
+          links:
+            - s4
+        h12:
+          hostIp: "30"
+          weight: 8
+          links:
+            - s4
+        h13:
+          hostIp: "40"
+          links:
+            - s4

@@ -7,8 +7,8 @@ def cidr_to_netmask(cidr) -> str:
     return out
 
 class IP():
-    def __init__(self, network: int, host: int, mask=24):
-        self.network = f"10.{network}.0"
+    def __init__(self, network: int, host: int, mask=24, subnetwork=0):
+        self.network = f"10.{network}.{subnetwork}"
         self.networkId = network
         self.host = host
         self.mask = mask
@@ -138,11 +138,12 @@ class Rule():
         self.dstIp = IP(dstIp_yaml["network"], dstIp_yaml["host"], dstIp_yaml["mask"])
         self.protocol: str = data["protocol"]
         self.Port: int = data["port"]
+        self.LocalPort: int = data.get("localPort", self.Port)
     def __repr__(self):
         return f"\n             src:{self.srcIp} dst:{self.dstIp} proto:{self.protocol} port:{self.Port}"
 
 class Router(NodeL3):
-    def __init__(self, nodeName: str, ip: IP, jsonPath: str, bvModel: str, base_thrift_port: int, networkId: int, isGateway: bool = False, rules: list[Rule] = []):
+    def __init__(self, nodeName: str, ip: IP, jsonPath: str, bvModel: str, base_thrift_port: int, networkId: int, isGateway: bool = False, isNatter=False, rules: list[Rule] = []):
         capture = re.match(r"r(\d+)", nodeName)
         self.macDeviceId = int(capture.group(1))
         super().__init__(nodeName, 1, self.macDeviceId, ip, networkId)
@@ -151,6 +152,8 @@ class Router(NodeL3):
         self.thrift_port = base_thrift_port + self.macDeviceId - 1
         self.isGateway = isGateway
         self.rules = rules
+        self.forwardingLinks: dict[int, Link] = {}
+        self.natter = isNatter
     def __repr__(self):
         res = super().__repr__()
         spl = res.split("\n", 1)
@@ -160,13 +163,21 @@ class Router(NodeL3):
         res += f"\n         Thrift port: {self.thrift_port}"
         res += f"\n         Gateway: {self.isGateway}"
         res += f"\n         Rules: {self.rules}"
+        res += f"\n         ForwardingLinks:"
+        for net, link in self.forwardingLinks.items():
+            ownPort = link.ports[self.nodeName]
+            res += f"\n             {ownPort} <{self.network}-{net}> "
+            for node, port in link.ports.items():
+                if node != self.nodeName:
+                    res += f" {port}"
         res += f"\n{spl[1]}"
         return res
 
 class Host(NodeL3):
-    def __init__(self, nodeName: str, ip: str, networkId: int):
+    def __init__(self, nodeName: str, ip: str, networkId: int, weight:int):
         capture = re.match(r"h(\d+)", nodeName)
         self.macDeviceId = int(capture.group(1))
+        self.weight = weight
         super().__init__(nodeName, 2, self.macDeviceId, ip, networkId)
 
 class Network():
@@ -180,37 +191,42 @@ class Network():
         self.switches: dict[str, Switch] = {}
         self.linksL2: dict[frozenset[str, str], Link] = {}
         self.gateway = "not-set"
+        self.NATted = data.get("NATted", False)
         devices = data["nodes"]
-        for s_yaml in devices["switches"]:
-            s = Switch(s_yaml, self.netId)
-            self.nodes[s.nodeName] = s
-            self.switches[s.nodeName] = s
-        for r_name, r_body in devices["routers"].items():
-            if r_body.get("gateway", False):
-                self.gateway = r_name
-            rules: list[Rule] = []
-            for rule in r_body.get("rules", []):
-                rules.append(Rule(rule))
-            json_path = r_body.get("json_path", defaults["json_path"])
-            bvmodel = r_body.get("bvmodel", defaults["bvmodel"])
-            base_thrift_port = r_body.get("base_thrift_port", defaults["base_thrift_port"])
-            isGateway = r_body.get("gateway", False)
-            r = Router(r_name, IP(self.netId, 1), json_path, bvmodel, base_thrift_port, self.netId, isGateway, rules)
-            self.nodes[r.nodeName] = r
-            self.nodesl3[r.nodeName] = r
-            self.routers[r.nodeName] = r
-            for l in r_body["links"]:
-                self.linksL2[frozenset([r_name, l])] = None
-        for h_name, h_body in devices["hosts"].items():
-            h = Host(h_name, IP(self.netId, h_body["hostIp"]), self.netId)
-            self.nodes[h.nodeName] = h
-            self.nodesl3[h.nodeName] = h
-            self.hosts[h.nodeName] = h
-            for l in h_body["links"]:
-                self.linksL2[frozenset([h_name, l])] = None
+        if "switches" in devices:
+            for s_yaml in devices["switches"]:
+                s = Switch(s_yaml, self.netId)
+                self.nodes[s.nodeName] = s
+                self.switches[s.nodeName] = s
+        if "routers" in devices:
+            for r_name, r_body in devices["routers"].items():
+                if r_body.get("gateway", False):
+                    self.gateway = r_name
+                rules: list[Rule] = []
+                for rule in r_body.get("rules", []):
+                    rules.append(Rule(rule))
+                json_path = r_body.get("json_path", defaults["json_path"])
+                bvmodel = r_body.get("bvmodel", defaults["bvmodel"])
+                base_thrift_port = r_body.get("base_thrift_port", defaults["base_thrift_port"])
+                isGateway = r_body.get("gateway", False)
+                r = Router(r_name, IP(self.netId, 1), json_path, bvmodel, base_thrift_port, self.netId, isGateway, self.NATted,  rules)
+                self.nodes[r.nodeName] = r
+                self.nodesl3[r.nodeName] = r
+                self.routers[r.nodeName] = r
+                for l in r_body["links"]:
+                    self.linksL2[frozenset([r_name, l])] = None
+        if "hosts" in devices:
+            for h_name, h_body in devices["hosts"].items():
+                weight = h_body.get("weight", 1)
+                h = Host(h_name, IP(self.netId, h_body["hostIp"]), self.netId, weight)
+                self.nodes[h.nodeName] = h
+                self.nodesl3[h.nodeName] = h
+                self.hosts[h.nodeName] = h
+                for l in h_body["links"]:
+                    self.linksL2[frozenset([h_name, l])] = None
 
     def __repr__(self):
-        res = f"\n{self.__class__.__name__}{self.netId}:"
+        res = f"\n{self.__class__.__name__}{self.netId}(gateway:{self.gateway}):"
         for node in self.nodes.values():
             res += f"\n    {node}"
         return res
@@ -267,7 +283,22 @@ class State():
                         router.addLinkL3(linkL3)
                         remoteNode2.addLinkL3(linkL3)
                         self.linksL3[frozenset([router.nodeName, remoteNodeName2])] = linkL3
-                            
+        for router in self.routers.values():
+            for netID, network in self.networks.items():
+                if netID != router.network:
+                    gatewayRouter: Router = self.routers[network.gateway]
+                    linksIter = [(remoteName, l.ports[remoteName], l.ports[router.nodeName]) for remoteName, l in router.linksL3.items()]
+                    checkedNodes = set([router.nodeName])
+                    result: tuple[str, PortL2, PortL2] = ("", None, None)
+                    while result[0] == "" and len(linksIter):
+                        tryingNodeName, tryingPort, originalPort = linksIter.pop(0)
+                        if tryingNodeName == gatewayRouter.nodeName:
+                            result = (tryingNodeName, tryingPort, originalPort)
+                            continue
+                        elif tryingNodeName in self.routers:
+                            linksIter += [(newRemoteName, newRemote.ports[newRemoteName], originalPort) for newRemoteName, newRemote in self.routers[tryingNodeName].linksL3.items() if newRemoteName not in checkedNodes]
+                            checkedNodes.add(tryingNodeName)
+                    router.forwardingLinks[netID] = Link(router.nodeName, result[2], result[0], result[1])
     def getHostByIP(self, ip: IP) -> Host:
         for hName, host in self.hosts.items():
             if host.ip == ip:
