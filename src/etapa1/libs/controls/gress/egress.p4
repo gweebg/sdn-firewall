@@ -97,7 +97,7 @@ control MyEgress(inout headers hdr,
         bool isStateAllowed = (meta.register_cell_one == 1 && meta.register_cell_two == 1);
         bool isAckAfterFin = hdr.tcp.isValid() && hdr.tcp.ack == 1 && meta.register_cell_one == 2;
 
-        if (meta.packetDirection == 1 && (!hdr.tcp.isValid() || !(hdr.tcp.isValid() && hdr.tcp.ack == 1 && meta.register_cell_one == 2))) {
+        if (meta.packetDirection == 1 && (!hdr.tcp.isValid() || !isAckAfterFin)) {
             writeState();
         }
         else if (meta.packetDirection == 2) {

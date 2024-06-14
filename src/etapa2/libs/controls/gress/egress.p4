@@ -157,14 +157,19 @@ control MyEgress(inout headers hdr,
         meta.publicPort = pubPort;
     }
 
+    action noPortFound(){
+        meta.publicPort = hdr.ports.srcPort;
+    }
+
     table privateToPublicPort {
         key = {
             meta.outboundPrivatePort: exact;
         }
         actions = {
             setPublicPort;
-            NoAction;
+            noPortFound;
         }
+        default_action = noPortFound;
     }
 
     apply { 
