@@ -14,89 +14,43 @@ control MyEgress(inout headers hdr,
 
     register<bit<8>>(1) currentServerID;
 
-    // register<bit<16>>(65536) privateToPublicPorts;
+
+    // register<bit<16>>(BLOOM_FILTER_ENTRIES)     fiveT_localPort;
+    // register<bit<16>>(BLOOM_FILTER_ENTRIES)     fiveT_remotePort;
+    // register<ip4Addr_t>(BLOOM_FILTER_ENTRIES)   fiveT_localAddr;
+    // register<ip4Addr_t>(BLOOM_FILTER_ENTRIES)   fiveT_remoteAddr;
+    // register<bit<48>>(BLOOM_FILTER_ENTRIES)     entryTS;
+    // register<bit<4>>(BLOOM_FILTER_ENTRIES)      direction;
+    // register<bit<2>>(BLOOM_FILTER_ENTRIES)      newState;
+    // register<bit<2>>(BLOOM_FILTER_ENTRIES)      read_state;
+    // register<bit<16>>(BLOOM_FILTER_ENTRIES)     read_privatePort;
+    // register<ip4Addr_t>(BLOOM_FILTER_ENTRIES)   read_privateAddr;
+    // register<bit<16>>(BLOOM_FILTER_ENTRIES)     read_publicPort;
+    // register<ip4Addr_t>(BLOOM_FILTER_ENTRIES)   read_publicAddr;
+    // register<bit<32>>(1) debugRegisterPos;
+    // action writeToDebug(){
+    //     bit<32> index = 0;
+    //     debugRegisterPos.read(index, 0);
+    //     fiveT_localPort.write(index,  meta.tupleToCheck.localPort);
+    //     fiveT_remotePort.write(index, meta.tupleToCheck.remotePort);
+    //     fiveT_localAddr.write(index,  meta.tupleToCheck.localAddr);
+    //     fiveT_remoteAddr.write(index, meta.tupleToCheck.remoteAddr);
+    //     entryTS.write(index, standard_metadata.egress_global_timestamp);
+    //     direction.write(index, meta.packetDirection);
+    //     newState.write(index, meta.state);
+    //     read_state.write(index, meta.register_cell_one.state);
+    //     read_privatePort.write(index, meta.register_cell_one.privatePort);
+    //     read_privateAddr.write(index, meta.register_cell_one.privateAddr);
+    //     read_publicPort.write(index, meta.register_cell_one.publicPort);
+    //     read_publicAddr.write(index, meta.register_cell_one.publicAddr);
+    //     debugRegisterPos.write(0, index + 1);
+    // }
+
 
     action drop() {
         mark_to_drop(standard_metadata);
     }
 
-    action setPortsToZero(){
-        hdr.ports.srcPort = 0;
-        hdr.ports.dstPort = 0;
-    }
-
-    action setFiveTupleOutbound(){
-        meta.tupleToCheck.localAddr = hdr.ipv4.srcAddr;
-        meta.tupleToCheck.remoteAddr = hdr.ipv4.dstAddr;
-        meta.tupleToCheck.localPort = hdr.ports.srcPort;
-        meta.tupleToCheck.remotePort = hdr.ports.dstPort;
-        meta.tupleToCheck.protocol = hdr.ipv4.protocol;    
-    }
-
-    action setFiveTupleInbound(){
-        meta.tupleToCheck.localAddr = hdr.ipv4.dstAddr;
-        meta.tupleToCheck.remoteAddr = hdr.ipv4.srcAddr;
-        meta.tupleToCheck.localPort = hdr.ports.dstPort;
-        meta.tupleToCheck.remotePort = hdr.ports.srcPort;
-        meta.tupleToCheck.protocol = hdr.ipv4.protocol;   
-    }
-
-    action setFiveTupleNatOutbound(){
-        meta.tupleToCheck.localAddr = meta.cServer.publicAddr;
-        meta.tupleToCheck.remoteAddr = hdr.ipv4.dstAddr;
-        meta.tupleToCheck.localPort =  meta.publicPort;
-        meta.tupleToCheck.remotePort = hdr.ports.dstPort;
-        meta.tupleToCheck.protocol = hdr.ipv4.protocol;
-    }
-
-    action setFiveTupleNatInbound(){
-        meta.tupleToCheck.localAddr = hdr.ipv4.dstAddr;
-        meta.tupleToCheck.remoteAddr = hdr.ipv4.srcAddr;
-        meta.tupleToCheck.localPort = hdr.ports.dstPort;
-        meta.tupleToCheck.remotePort = hdr.ports.srcPort;
-        meta.tupleToCheck.protocol = hdr.ipv4.protocol;    
-    }
-    
-    action setFiveTupleNewNatOutbound(){
-        meta.tupleToCheck.localAddr = meta.cServer.publicAddr;
-        meta.tupleToCheck.remoteAddr = hdr.ipv4.dstAddr;
-        meta.tupleToCheck.localPort = hdr.ports.srcPort;
-        meta.tupleToCheck.remotePort = hdr.ports.dstPort;
-        meta.tupleToCheck.protocol = hdr.ipv4.protocol;
-    }
-
-    action setFiveTupleNewNatInbound(){
-        meta.tupleToCheck.localAddr = hdr.ipv4.dstAddr;
-        meta.tupleToCheck.remoteAddr = hdr.ipv4.srcAddr;
-        meta.tupleToCheck.localPort = hdr.ports.dstPort;
-        meta.tupleToCheck.remotePort = hdr.ports.srcPort;
-        meta.tupleToCheck.protocol = hdr.ipv4.protocol;
-    }
-    
-
-    action setFilterEntryNoNatOutbound(){
-        meta.entryToWrite.state = meta.state;
-        meta.entryToWrite.privatePort = 0;
-        meta.entryToWrite.privateAddr = 0;
-        meta.entryToWrite.publicPort = 0;
-        meta.entryToWrite.publicAddr = 0;        
-    }
-
-    action setFilterEntryNewNatOutbound(){
-        meta.entryToWrite.state = meta.state;
-        meta.entryToWrite.privatePort = meta.tupleToCheck.localPort;
-        meta.entryToWrite.privateAddr = hdr.ipv4.srcAddr;
-        meta.entryToWrite.publicPort = meta.tupleToCheck.localPort;
-        meta.entryToWrite.publicAddr = meta.cServer.publicAddr;        
-    }
-
-    action setFilterEntryNewNatInbound(){
-        meta.entryToWrite.state = meta.state;
-        meta.entryToWrite.privatePort = meta.privatePort;
-        meta.entryToWrite.privateAddr = meta.cServer.privateAddr;
-        meta.entryToWrite.publicPort = hdr.ports.dstPort;
-        meta.entryToWrite.publicAddr = meta.cServer.publicAddr; 
-    }
 
     action getRegisterPositions(){
         bit<32> bfEntrys = (bit<32>)BLOOM_FILTER_ENTRIES;
@@ -231,77 +185,137 @@ control MyEgress(inout headers hdr,
         }
 
         if (!hdr.ports.isValid()){
-           setPortsToZero();
+            hdr.ports.srcPort = 0;
+            hdr.ports.dstPort = 0;
         }
 
         if (meta.packetDirection == 1){
             if (meta.EnabledNAT == 0) {
-                setFiveTupleOutbound();
+                // five tuple outbound
+                meta.tupleToCheck.localAddr = hdr.ipv4.srcAddr;
+                meta.tupleToCheck.remoteAddr = hdr.ipv4.dstAddr;
+                meta.tupleToCheck.localPort = hdr.ports.srcPort;
+                meta.tupleToCheck.remotePort = hdr.ports.dstPort;
+                meta.tupleToCheck.protocol = hdr.ipv4.protocol;    
             } else {
                 meta.outboundPrivatePort = hdr.ports.srcPort;
                 privateToPublicPort.apply();
-                setFiveTupleNatOutbound();
+                // five tuple nat outbound
+                meta.tupleToCheck.localAddr = meta.cServer.publicAddr;
+                meta.tupleToCheck.remoteAddr = hdr.ipv4.dstAddr;
+                meta.tupleToCheck.localPort =  meta.publicPort;
+                meta.tupleToCheck.remotePort = hdr.ports.dstPort;
+                meta.tupleToCheck.protocol = hdr.ipv4.protocol;
             }
         } else if (meta.packetDirection == 2) {
             if (meta.EnabledNAT == 0) {
-                setFiveTupleInbound();
+                // five tuple inbound
+                meta.tupleToCheck.localAddr = hdr.ipv4.dstAddr;
+                meta.tupleToCheck.remoteAddr = hdr.ipv4.srcAddr;
+                meta.tupleToCheck.localPort = hdr.ports.dstPort;
+                meta.tupleToCheck.remotePort = hdr.ports.srcPort;
+                meta.tupleToCheck.protocol = hdr.ipv4.protocol;   
             } else {
-                setFiveTupleNatInbound();
+                // five tuple nat inbound
+                meta.tupleToCheck.localAddr = hdr.ipv4.dstAddr;
+                meta.tupleToCheck.remoteAddr = hdr.ipv4.srcAddr;
+                meta.tupleToCheck.localPort = hdr.ports.dstPort;
+                meta.tupleToCheck.remotePort = hdr.ports.srcPort;
+                meta.tupleToCheck.protocol = hdr.ipv4.protocol;    
             }
         }
 
         getRegisterPositions();
         readFromBloomFilters();
 
+        // if (hdr.tcp.isValid()){
+        //     writeToDebug();
+        // }
+
+        bool isStateAllowed = (meta.register_cell_one.state == 1 && meta.register_cell_two.state == 1);
+        bool isAckAfterFin = hdr.tcp.isValid() && hdr.tcp.ack == 1 && meta.register_cell_one.state == 2;
+
         if (meta.packetDirection == 1) {
             if (meta.EnabledNAT == 0) {
-                if ((!hdr.tcp.isValid() || !(hdr.tcp.isValid() && hdr.tcp.ack == 1 && meta.register_cell_one.state == 2))){
-                    setFilterEntryNoNatOutbound();
+                if (!hdr.tcp.isValid() || !isAckAfterFin){
+                    meta.entryToWrite.state = meta.state;
+                    meta.entryToWrite.privatePort = 0;
+                    meta.entryToWrite.privateAddr = 0;
+                    meta.entryToWrite.publicPort = 0;
+                    meta.entryToWrite.publicAddr = 0;  
                     writeToBloomFilters();
+                    return;
+                } else {
                     return;
                 }
             } else {
-                if (meta.register_cell_one.state != 1 || meta.register_cell_two.state != 1) {
-                    setFiveTupleNewNatOutbound();
-                    getRegisterPositions();
-                    setFilterEntryNewNatOutbound();
-                    writeToBloomFilters();
-                    meta.register_cell_one = meta.entryToWrite;
+                if (!isStateAllowed){
+                    if (!hdr.tcp.isValid() || !isAckAfterFin) {
+                        // setFiveTupleNewNatOutbound();
+                        meta.tupleToCheck.localAddr = meta.cServer.publicAddr;
+                        meta.tupleToCheck.remoteAddr = hdr.ipv4.dstAddr;
+                        meta.tupleToCheck.localPort = hdr.ports.srcPort;
+                        meta.tupleToCheck.remotePort = hdr.ports.dstPort;
+                        meta.tupleToCheck.protocol = hdr.ipv4.protocol;
+                        getRegisterPositions();
+                        // setFilterEntryNewNatOutbound();
+                        meta.entryToWrite.state = meta.state;
+                        meta.entryToWrite.privatePort = meta.tupleToCheck.localPort;
+                        meta.entryToWrite.privateAddr = hdr.ipv4.srcAddr; 
+                        meta.entryToWrite.publicPort = meta.tupleToCheck.localPort;
+                        meta.entryToWrite.publicAddr = meta.cServer.publicAddr;
+                        writeToBloomFilters();
+                        meta.register_cell_one = meta.entryToWrite;
+                    }
+                } else {
+                    writeToBloomFiltersMetaState();
                 }
                 translateOutboundPacket();
                 recirculate_preserving_field_list(0);
             }
         }
         else if (meta.packetDirection == 2) {
-            if (meta.register_cell_one.state != 1 || meta.register_cell_two.state != 1) {
-                if (hdr.tcp.isValid() && hdr.tcp.ack == 1 && meta.register_cell_one.state == 2){
-                    meta.default_rules_allowed = 1;
-                    meta.state = 2;
-                }
-                else {
+            if (!isStateAllowed){
+                if (!hdr.tcp.isValid() || !isAckAfterFin){
                     fwall_rules.apply();
+                    if (meta.default_rules_allowed == 0) {
+                        drop();
+                        return;
+                    }
+                    if (meta.EnabledNAT == 0){
+                        meta.entryToWrite.state = meta.state;
+                        meta.entryToWrite.privatePort = 0;
+                        meta.entryToWrite.privateAddr = 0;
+                        meta.entryToWrite.publicPort = 0;
+                        meta.entryToWrite.publicAddr = 0;  
+                        writeToBloomFilters();
+                    } else  {
+                        // setFiveTupleNewNatInbound();
+                        meta.tupleToCheck.localAddr = hdr.ipv4.dstAddr;
+                        meta.tupleToCheck.remoteAddr = hdr.ipv4.srcAddr;
+                        meta.tupleToCheck.localPort = hdr.ports.dstPort;
+                        meta.tupleToCheck.remotePort = hdr.ports.srcPort;
+                        meta.tupleToCheck.protocol = hdr.ipv4.protocol;
+                        getRegisterPositions();
+                        // setFilterEntryNewNatInbound();
+                        meta.entryToWrite.state = meta.state;
+                        meta.entryToWrite.privatePort = meta.privatePort;
+                        meta.entryToWrite.privateAddr = meta.cServer.privateAddr;
+                        meta.entryToWrite.publicPort = hdr.ports.dstPort;
+                        meta.entryToWrite.publicAddr = meta.cServer.publicAddr; 
+                        writeToBloomFilters();
+                        meta.register_cell_one = meta.entryToWrite;
+                        currentServerID.write(0, meta.cServer.nextServerID);
+                    }
                 }
-                if (meta.default_rules_allowed == 0) {
-                    drop();
-                    return;
-                } else if (meta.EnabledNAT == 0) {
-                    return;
-                }
-                setFiveTupleNewNatInbound();
-                getRegisterPositions();
-                setFilterEntryNewNatInbound();
-                writeToBloomFilters();
-                meta.register_cell_one = meta.entryToWrite;
-                currentServerID.write(0, meta.cServer.nextServerID);
             } else {
                 writeToBloomFiltersMetaState();
             }
-            
-            if (meta.EnabledNAT == 0) {
-                return;
+
+            if (meta.EnabledNAT == 1) {
+                translateInboundPacket();
+                recirculate_preserving_field_list(0);
             }
-            translateInboundPacket();
-            recirculate_preserving_field_list(0);
         }
     }
 }

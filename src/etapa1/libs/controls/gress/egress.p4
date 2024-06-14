@@ -94,22 +94,20 @@ control MyEgress(inout headers hdr,
         }
         getRegisterPositions();
         readState();
+        bool isStateAllowed = (meta.register_cell_one == 1 && meta.register_cell_two == 1);
+        bool isAckAfterFin = hdr.tcp.isValid() && hdr.tcp.ack == 1 && meta.register_cell_one == 2;
 
         if (meta.packetDirection == 1 && (!hdr.tcp.isValid() || !(hdr.tcp.isValid() && hdr.tcp.ack == 1 && meta.register_cell_one == 2))) {
             writeState();
         }
         else if (meta.packetDirection == 2) {
-            if (meta.register_cell_one != 1 || meta.register_cell_two != 1){
-                if (hdr.tcp.isValid() && hdr.tcp.ack == 1 && meta.register_cell_one == 2){
-                    meta.default_rules_allowed = 1;
-                    meta.state = 2;
-                } else {
+            if (!isStateAllowed){
+                if (!hdr.tcp.isValid() || !isAckAfterFin){
                     fwall_rules.apply();
-                }
-                if (meta.default_rules_allowed == 0) {
-                    drop();
-                    return;
-                } else { //escrever novo estado quando estado era 0 ou 2
+                    if (meta.default_rules_allowed == 0) {
+                        drop();
+                        return;
+                    }
                     writeState();
                 }
             } else { //escrever novo estado quando estado era 1

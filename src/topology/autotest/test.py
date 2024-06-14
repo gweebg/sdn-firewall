@@ -30,7 +30,7 @@ def testRule(mnet: Mininet, s:State, r: Rule):
             t = Thread(target=serverCMD, args=(dstNode, serverCommand, serverResult))
             t.start()
             srcNode = mnet.get(sH.nodeName)
-            print(f"Testing {sH.nodeName} <-> {h.nodeName}:")
+            print(f"\nTesting {sH.nodeName} <-> {h.nodeName}:")
             print(f"    {sH.nodeName} running wrong command: {clientWrongCommand} -> ", end="")
             wrongResult = srcNode.cmd(clientWrongCommand)
             print("connection timed out correctly" if "timed out" in wrongResult else "WARNING: connection not timed out wrongly(possible problems in firewall rules)")
@@ -38,7 +38,8 @@ def testRule(mnet: Mininet, s:State, r: Rule):
             result = srcNode.cmd(clientCommand)
             t.join()
         serverResult = [element for sublist in [s.split('\n') for s in serverResult] for element in sublist]
-        print('\n'.join([serverResult[0]] + [s for s in serverResult if not "Listening on" in s and s != ""]))
+        print(f"\n{h.nodeName} command result:", end="\n   ")
+        print('\n   '.join([serverResult[0]] + [s for s in serverResult if not "Listening on" in s and s != ""]))
         print(f"===================={h.nodeName} nc server stopped====================")
 
 

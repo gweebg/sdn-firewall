@@ -113,7 +113,7 @@ control MyIngress(inout headers hdr,
                         self_icmp.apply();
                     }
                     // else if ((hdr.tcp.isValid() || hdr.udp.isValid()) && meta.EnabledNAT == 1 && meta.AlreadyTranslated != 1){
-                    else if (meta.EnabledNAT == 1 && meta.AlreadyTranslated != 1){
+                    if (meta.EnabledNAT == 1 && meta.AlreadyTranslated != 1){
                         return;
                     }
                 }
