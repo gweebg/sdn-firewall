@@ -17,7 +17,6 @@ from p4runtime_lib.error_utils import printGrpcError
 from controller import TechController
 
 
-
 def printGrpcError(e):
     print("gRPC Error:", e.details(), end=' ')
     status_code = e.code()
@@ -51,16 +50,17 @@ def main(args: argparse.Namespace):
             else:
                 print(f"Failed to inject some rules on {router}")
                             
-            print("=" * 75)    
-
+            print("=" * 75)
 
         while True:
             sleep(10)
-            print('\n----- Reading Rules -----')
-            print("=" * 75)
-            for router in controller.routers.keys():
-                controller.readTableRules(router)
+            if args.debug:
+                print('\n----- Reading Rules -----')
                 print("=" * 75)
+                for router in controller.routers.keys():
+                    controller.readTableRules(router)
+                    print("=" * 75)
+
 
     except KeyboardInterrupt:
         print(" Shutting down.")
@@ -78,6 +78,9 @@ if __name__ == '__main__':
     parser.add_argument('--state', help='State file',
                         type=str, action="store", required=False,
                         default='config/network.yml')
+    parser.add_argument('--debug', help='Debug mode',
+                        action="store_true", required=False,
+                        default=False)
     args = parser.parse_args()
 
     if not os.path.exists(args.p4info):

@@ -118,6 +118,8 @@ class TechController:
                 remotePort: PortL3 = l.getOtherPortFromLocalName(r.nodeName)
                 mask = 24 if remotePort.ip.host == 1 else 32
                 strIp = remotePort.ip.getCompleteIp()
+                if mask == 24:
+                    strIp = remotePort.ip.network + '.0'
                 table_entry = self.p4info_helper.buildTableEntry(
                     table_name=table_name,
                     match_fields={
@@ -130,10 +132,8 @@ class TechController:
                     })
                 self.runtime_connections[router].WriteTableEntry(table_entry)
             return True
-        except grpc.RpcError as e:
-            printGrpcError(e)
-            return False
         except Exception as e:
+            print(e)
             return False
 
     ##table_add fwall_rules RulesSuccess {rule.srcIp.GetCompleteTernaryFormat()} {rule.dstIp.GetCompleteTernaryFormat()} {rule.protocol} {rule.Port} 1 1
@@ -180,10 +180,14 @@ class TechController:
         try:
             for l in self.routers[router].linksL3.values():
                 remotePort: PortL3 = l.getOtherPortFromLocalName(router)
+                mask = 24 if remotePort.ip.host == 1 else 32
+                strIp = remotePort.ip.getCompleteIp()
+                if mask == 24:
+                    strIp = remotePort.ip.network + '.0'
                 table_entry = self.p4info_helper.buildTableEntry(
                     table_name=table_name,
                     match_fields={
-                        "meta.next_hop_ipv4": remotePort.ip.getCompleteIp()
+                        "meta.next_hop_ipv4": strIp,
                     },
                     action_name=action_name,
                     action_params={
