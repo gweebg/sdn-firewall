@@ -17,13 +17,14 @@ from mininet.clean import Cleanup
 # User defined libraries
 from config.loader import getState, State, Host, Router, Switch, PortL3, FirewallRule
 from CustomIP.IP import IP
-from p4.mininet import P4Host, P4Switch
+from p4.mininet import P4Host, P4Switch, P4RuntimeSwitch
 from autotest.test import testFirewall, testICMP
 
 class TechSecure(Topo):
     CLS_DICT = {
         "P4Host": P4Host,
         "P4Switch": P4Switch,
+        "P4RuntimeSwitch": P4RuntimeSwitch,
         "OVSKernelSwitch": OVSKernelSwitch,
     }
 
@@ -63,10 +64,13 @@ class TechSecure(Topo):
             ips["ip1"] = router_.ip.GetIpWithMask()
             self.__routers[router_.nodeName] = self.addSwitch(
                 router_.nodeName,
-                cls=self.CLS_DICT["P4Switch"],
+                cls=self.CLS_DICT["P4RuntimeSwitch"],
                 sw_path=router_.bvmodel,
-                json_path=router_.json_path,
+                json_path=None,
                 thrift_port=router_.thrift_port,
+                grpc_port=router_.grpc_port,
+                cpu_port=router_.cpu_port,
+                device_id=router_.macDeviceId,
                 **ips,
             )
 
@@ -245,7 +249,6 @@ def main(arguments):
 
     net = Mininet(topo=topology, controller=None)
     net.start()
-
     init_topology(net, state, stage)
 
     test: bool = arguments.test
@@ -259,6 +262,12 @@ def main(arguments):
 
 
 if __name__ == "__main__":
+    ## Clean old mn files
+    import os
+    os.system("mn -c")
+    ## clear screen
+    os.system("clear")
+    ## Parse arguments
     parser = argument_parsing.ArgumentParser(description="TechSecure Network Mininet")
     parser.add_argument(
         "-c",

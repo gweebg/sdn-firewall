@@ -163,3 +163,6 @@ cython_debug/
 # Extras
 .dev/
 .idea/
+
+# Ignore p4runtime generated files
+*p4runtime-request.txt
