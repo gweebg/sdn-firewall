@@ -6,10 +6,22 @@ control MyIngress(inout headers hdr,
                   inout metadata meta,
                   inout standard_metadata_t standard_metadata) {
 
-    
-
     action drop() {
         mark_to_drop(standard_metadata);
+    }
+
+    action setPacketDirection(bit<4> dir){
+        meta.packetDirection = dir;
+    }
+    table checkPacketDirection { 
+        key = { 
+            hdr.ipv4.srcAddr : ternary; 
+            hdr.ipv4.dstAddr : ternary;
+        } 
+        actions = {
+            setPacketDirection; NoAction;
+        }
+        default_action = NoAction(); // NoAction is defined in vlmodel - does nothing
     }
 
     action ipv4_fwd(ip4Addr_t nxt_hop, egressSpec_t port) {
@@ -57,35 +69,11 @@ control MyIngress(inout headers hdr,
         default_action = drop;
     }
 
-    action reply_to_icmp(){
-        if (hdr.icmp.type==8){
-            ip4Addr_t dst = hdr.ipv4.dstAddr;
-            hdr.ipv4.dstAddr = hdr.ipv4.srcAddr;
-            hdr.ipv4.srcAddr = dst;
-            hdr.icmp.type = 0;
-            meta.is_response_to_icmp = 1;
-        }
-    }
-
-    table self_icmp {
-        key = {
-            hdr.ipv4.dstAddr : exact;
-        }
-        actions = {
-            reply_to_icmp;
-            NoAction;
-        }
-        default_action = NoAction;
-    }
-
-    
-
     apply {
         if (hdr.ipv4.isValid()) {
-            meta.is_response_to_icmp = 0;
-            if (hdr.icmp.isValid()){
-                self_icmp.apply();
-            }
+            
+            checkPacketDirection.apply();
+            
             ipv4_lpm.apply();
             src_mac.apply();
             dst_mac.apply();

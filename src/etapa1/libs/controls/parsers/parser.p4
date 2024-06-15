@@ -12,11 +12,6 @@ parser MyParser(packet_in packet,
      * transition <next-state>
      * transition select(<expression>) -> works like a switch case
      */
-    
-    state parse_icmp {
-        packet.extract(hdr.icmp);
-        transition accept;
-    }
 
     state parse_tcp {
         packet.extract(hdr.ports); // extract function populates the ports header
@@ -34,7 +29,6 @@ parser MyParser(packet_in packet,
     state parse_ipv4 {
         packet.extract(hdr.ipv4); // extract function populates the ipv4 header
         transition select(hdr.ipv4.protocol) {
-            TYPE_ICMP: parse_icmp;
             TYPE_TCP: parse_tcp;
             TYPE_UDP:  parse_udp;
             default: accept;
