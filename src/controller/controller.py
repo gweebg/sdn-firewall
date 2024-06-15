@@ -9,11 +9,13 @@ import grpc
 # Import P4Runtime lib from utils dir
 # Probably there's a better way of doing this.
 sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)),'utils/'))
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../topology'))) # Add the src directory to the system path
 
 import p4runtime_lib.bmv2
 import p4runtime_lib.helper
 
-from topology.config.loader import getState, State, Host, Router, Switch, PortL3, Rule
+from topology.config.loader import getState, PortL3
+from topology.rules.rules import Rule
 
 def printGrpcError(e):
     print("gRPC Error:", e.details(), end=' ')
@@ -38,7 +40,7 @@ class TechController:
             self.state_file = 'config/network.yml'
 
         self.runtime_connections: dict[str, p4runtime_lib.bmv2.Bmv2SwitchConnection] = {}
-        self.state = getState(self.state_file)
+        self.state = getState(self.state_file,3)
         self.routers = self.state.routers
         self.p4info_helper = p4runtime_lib.helper.P4InfoHelper(self.p4info_file)
 
@@ -64,7 +66,7 @@ class TechController:
         ## table_set_default src_mac drop
         ## table_set_default check_controlled_networks set_return_allowed
 
-        r.WriteTableEntry(self.p4info_helper.buildTableEntry(
+        """r.WriteTableEntry(self.p4info_helper.buildTableEntry(
             table_name="ipv4_lpm",
             default_action=True,
             action_name="MyIngress.drop"
@@ -84,6 +86,7 @@ class TechController:
             default_action=True,
             action_name="MyEgress.set_return_allowed"
         ))
+        """
         return r
     
     def printCounter(self, router: str, counter_name: str, index: int):
@@ -109,6 +112,39 @@ class TechController:
                     print(self.p4info_helper.get_action_param_name(action_name, p.param_id), end=' ')
                     print(f'{p.value}', end=' ')
                 print()
+
+    def injectRule(self, rule: Rule, router: str):
+        try:
+            r = self.routers[router]
+            action_params = {rule.ActionArgs[i]: rule.values[rule.ActionArgs[i]][1] if type(rule.values[rule.ActionArgs[i]]) is tuple else rule.values[rule.ActionArgs[i]] for i in range(len(rule.ActionArgs))}
+            if rule.IsSettingDefault:
+                table_entry = self.p4info_helper.buildTableEntry(
+                    table_name=rule.TableName,
+                    action_name=rule.ActionName,
+                    action_params=action_params,
+                    default_action=True)
+            else:
+                match_fields = {rule.Keys[i]: rule.values[rule.Keys[i]][1] if type(rule.values[rule.Keys[i]]) is tuple else rule.values[rule.Keys[i]] for i in range(len(rule.Keys))}
+                if "hdr.ipv4.protocol" in match_fields:
+                    match_fields["hdr.ipv4.protocol"] = int(match_fields["hdr.ipv4.protocol"], 16) # Fix firewall issues
+                table_entry = self.p4info_helper.buildTableEntry(
+                    table_name=rule.TableName,
+                    match_fields=match_fields,
+                    action_name=rule.ActionName,
+                    action_params=action_params,
+                    priority=1 if rule.hasPrio else None)
+            try:
+                self.runtime_connections[router].WriteTableEntry(table_entry)
+            except Exception as e:
+                print(f"\nTable: {rule.TableName}\nMatch: {match_fields}\nAction: {rule.ActionName}\nAction Params: {action_params}\nPriority: {1 if rule.hasPrio else None}\n")
+                print(table_entry)
+                raise e
+            return True
+        except Exception as e:
+            print(f"Error {e}")
+            print(f"{router} {type(rule)} {rule} failed")
+            print("-" * 75)
+            return False
 
     ## table_add ipv4_lpm ipv4_fwd 10.0.1.10/32 => 10.0.1.10 1
     def injectFwdRules(self, router: str, table_name: str, action_name: str):

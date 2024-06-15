@@ -287,7 +287,6 @@ class P4RuntimeSwitch(Switch):
         info(cmd + "\n")
         print(cmd + "\n")
 
-
         pid = None
         with tempfile.NamedTemporaryFile() as f:
             self.cmd(cmd + ' >' + self.log_file + ' 2>&1 & echo $! >> ' + f.name)

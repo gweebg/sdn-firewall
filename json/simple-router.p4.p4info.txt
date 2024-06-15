@@ -3,6 +3,52 @@ pkg_info {
 }
 tables {
   preamble {
+    id: 37445974
+    name: "MyIngress.EnabledFuncsTable"
+    alias: "EnabledFuncsTable"
+  }
+  match_fields {
+    id: 1
+    name: "hdr.ipv4.srcAddr"
+    bitwidth: 32
+    match_type: LPM
+  }
+  action_refs {
+    id: 30599534
+  }
+  action_refs {
+    id: 21257015
+  }
+  size: 1024
+}
+tables {
+  preamble {
+    id: 50056645
+    name: "MyIngress.checkPacketDirection"
+    alias: "checkPacketDirection"
+  }
+  match_fields {
+    id: 1
+    name: "hdr.ipv4.srcAddr"
+    bitwidth: 32
+    match_type: TERNARY
+  }
+  match_fields {
+    id: 2
+    name: "hdr.ipv4.dstAddr"
+    bitwidth: 32
+    match_type: TERNARY
+  }
+  action_refs {
+    id: 31440050
+  }
+  action_refs {
+    id: 21257015
+  }
+  size: 1024
+}
+tables {
+  preamble {
     id: 37375156
     name: "MyIngress.ipv4_lpm"
     alias: "ipv4_lpm"
@@ -86,26 +132,6 @@ tables {
 }
 tables {
   preamble {
-    id: 42034359
-    name: "MyEgress.check_controlled_networks"
-    alias: "check_controlled_networks"
-  }
-  match_fields {
-    id: 1
-    name: "hdr.ipv4.dstAddr"
-    bitwidth: 32
-    match_type: TERNARY
-  }
-  action_refs {
-    id: 17834575
-  }
-  action_refs {
-    id: 29372976
-  }
-  size: 1024
-}
-tables {
-  preamble {
     id: 43726498
     name: "MyEgress.fwall_rules"
     alias: "fwall_rules"
@@ -142,6 +168,46 @@ tables {
   }
   size: 1024
 }
+tables {
+  preamble {
+    id: 36407486
+    name: "MyEgress.ServerLookup"
+    alias: "ServerLookup"
+  }
+  match_fields {
+    id: 1
+    name: "meta.cServerID"
+    bitwidth: 8
+    match_type: EXACT
+  }
+  action_refs {
+    id: 21924225
+  }
+  action_refs {
+    id: 21257015
+  }
+  size: 1024
+}
+tables {
+  preamble {
+    id: 47427355
+    name: "MyEgress.privateToPublicPort"
+    alias: "privateToPublicPort"
+  }
+  match_fields {
+    id: 1
+    name: "meta.outboundPrivatePort"
+    bitwidth: 16
+    match_type: EXACT
+  }
+  action_refs {
+    id: 32309039
+  }
+  action_refs {
+    id: 18018823
+  }
+  size: 1024
+}
 actions {
   preamble {
     id: 21257015
@@ -155,6 +221,35 @@ actions {
     id: 25652968
     name: "MyIngress.drop"
     alias: "MyIngress.drop"
+  }
+}
+actions {
+  preamble {
+    id: 30599534
+    name: "MyIngress.setEnabledFuncs"
+    alias: "setEnabledFuncs"
+  }
+  params {
+    id: 1
+    name: "enabledICMP"
+    bitwidth: 1
+  }
+  params {
+    id: 2
+    name: "enabledNAT"
+    bitwidth: 1
+  }
+}
+actions {
+  preamble {
+    id: 31440050
+    name: "MyIngress.setPacketDirection"
+    alias: "setPacketDirection"
+  }
+  params {
+    id: 1
+    name: "dir"
+    bitwidth: 4
   }
 }
 actions {
@@ -214,23 +309,44 @@ actions {
 }
 actions {
   preamble {
-    id: 17834575
-    name: "MyEgress.set_needs_fw"
-    alias: "set_needs_fw"
+    id: 33341743
+    name: "MyEgress.getRegisterPositions"
+    alias: "getRegisterPositions"
   }
 }
 actions {
   preamble {
-    id: 29372976
-    name: "MyEgress.set_return_allowed"
-    alias: "set_return_allowed"
+    id: 24678216
+    name: "MyEgress.writeToBloomFiltersMetaState"
+    alias: "writeToBloomFiltersMetaState"
   }
 }
 actions {
   preamble {
-    id: 24401245
-    name: "MyEgress.check_allow_return"
-    alias: "check_allow_return"
+    id: 31559379
+    name: "MyEgress.writeToBloomFilters"
+    alias: "writeToBloomFilters"
+  }
+}
+actions {
+  preamble {
+    id: 30700936
+    name: "MyEgress.readFromBloomFilters"
+    alias: "readFromBloomFilters"
+  }
+}
+actions {
+  preamble {
+    id: 19899717
+    name: "MyEgress.translateInboundPacket"
+    alias: "translateInboundPacket"
+  }
+}
+actions {
+  preamble {
+    id: 31157829
+    name: "MyEgress.translateOutboundPacket"
+    alias: "translateOutboundPacket"
   }
 }
 actions {
@@ -238,6 +354,11 @@ actions {
     id: 16804775
     name: "MyEgress.RulesSuccess"
     alias: "RulesSuccess"
+  }
+  params {
+    id: 1
+    name: "privPort"
+    bitwidth: 16
   }
 }
 actions {
@@ -247,20 +368,136 @@ actions {
     alias: "RulesBlocked"
   }
 }
+actions {
+  preamble {
+    id: 21924225
+    name: "MyEgress.setCurrentServer"
+    alias: "setCurrentServer"
+  }
+  params {
+    id: 1
+    name: "privAddr"
+    bitwidth: 32
+  }
+  params {
+    id: 2
+    name: "publicAddr"
+    bitwidth: 32
+  }
+  params {
+    id: 3
+    name: "nextSID"
+    bitwidth: 8
+  }
+}
+actions {
+  preamble {
+    id: 32309039
+    name: "MyEgress.setPublicPort"
+    alias: "setPublicPort"
+  }
+  params {
+    id: 1
+    name: "pubPort"
+    bitwidth: 16
+  }
+}
+actions {
+  preamble {
+    id: 18018823
+    name: "MyEgress.noPortFound"
+    alias: "noPortFound"
+  }
+}
 registers {
   preamble {
-    id: 375715444
-    name: "MyEgress.bloom_filter"
-    alias: "bloom_filter"
+    id: 383708045
+    name: "MyEgress.bloom_filter_state"
+    alias: "bloom_filter_state"
   }
   type_spec {
     bitstring {
       bit {
-        bitwidth: 1
+        bitwidth: 2
       }
     }
   }
   size: 4096
+}
+registers {
+  preamble {
+    id: 372979743
+    name: "MyEgress.bloom_filter_privatePort"
+    alias: "bloom_filter_privatePort"
+  }
+  type_spec {
+    bitstring {
+      bit {
+        bitwidth: 16
+      }
+    }
+  }
+  size: 4096
+}
+registers {
+  preamble {
+    id: 370989852
+    name: "MyEgress.bloom_filter_privateAddr"
+    alias: "bloom_filter_privateAddr"
+  }
+  type_spec {
+    bitstring {
+      bit {
+        bitwidth: 32
+      }
+    }
+  }
+  size: 4096
+}
+registers {
+  preamble {
+    id: 381241431
+    name: "MyEgress.bloom_filter_publicPort"
+    alias: "bloom_filter_publicPort"
+  }
+  type_spec {
+    bitstring {
+      bit {
+        bitwidth: 16
+      }
+    }
+  }
+  size: 4096
+}
+registers {
+  preamble {
+    id: 373684368
+    name: "MyEgress.bloom_filter_publicAddr"
+    alias: "bloom_filter_publicAddr"
+  }
+  type_spec {
+    bitstring {
+      bit {
+        bitwidth: 32
+      }
+    }
+  }
+  size: 4096
+}
+registers {
+  preamble {
+    id: 373966828
+    name: "MyEgress.currentServerID"
+    alias: "currentServerID"
+  }
+  type_spec {
+    bitstring {
+      bit {
+        bitwidth: 8
+      }
+    }
+  }
+  size: 1
 }
 type_info {
 }

@@ -37,19 +37,9 @@ def main(args: argparse.Namespace):
         print("=" * 75)
         for router in controller.routers.keys():
             print(f"Injecting rules on {router}")
-            fwd = controller.injectFwdRules(router, "ipv4_lpm", "ipv4_fwd")
-            src = controller.injectSrcMacRules(router, "src_mac", "rewrite_src_mac")
-            dst = controller.injectDstMacRules(router, "dst_mac", "rewrite_dst_mac")
-            fwl =controller.injectFwallRules(router, "fwall_rules", "RulesSuccess")
-            print(f"{'Forward: Success' if fwd else 'Forward: Failed'}")
-            print(f"{'Src Mac: Success' if src else 'Src Mac: Failed'}")
-            print(f"{'Dst Mac: Success' if dst else 'Dst Mac: Failed'}")
-            print(f"{'Firewall: Success' if fwl else 'Firewall: Failed'}")
-            if fwd and src and dst and fwl:
-                print(f"Rules injected on {router}")
-            else:
-                print(f"Failed to inject some rules on {router}")
-                            
+            for rule in controller.routers[router].TableEntries:
+                controller.injectRule(rule, router)
+                                        
             print("=" * 75)
 
         while True:

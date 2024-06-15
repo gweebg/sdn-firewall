@@ -170,6 +170,8 @@ class Router(NodeL3):
                 ipToCopy = forwardingLink.getOtherPortFromLocalName(self.nodeName).ip
                 mask = 32 if network.NATted and stage>1 else 24
                 fwdIp = IP(ipToCopy.networkId, ipToCopy.host, mask)
+                if (ipToCopy.host == 1 and mask == 24):
+                    fwdIp = IP(ipToCopy.networkId, 0, mask)
                 res.append(rules.ipv4FWDRule(fwdIp, forwardingLink.ports[self.nodeName].portId))
         return res
 
@@ -205,7 +207,6 @@ class Router(NodeL3):
     def genPacketDirectionRules(self) -> list[rules.packetDirectionRule]:
         wildcardIP = IP(0, 0, mask=0)
         routerIP = self.ip
-        print(routerIP)
         res = []
         res.append(rules.packetDirectionRule(routerIP, wildcardIP, 1))
         res.append(rules.packetDirectionRule(wildcardIP, routerIP, 2))

@@ -17,7 +17,7 @@ class IP():
         ip = f"{self.network}.0"
         mask = f"{self.mask}"
         if isTuple:
-            return (ip, mask)
+            return (ip, self.mask)
         else:
             return f"{ip}/{mask}"
 
@@ -25,7 +25,7 @@ class IP():
         ip = f"{self.network}.{self.host}"
         mask = f"{self.mask}"
         if isTuple:
-            return (ip, mask)
+            return (ip, self.mask)
         else:
             return f"{ip}/{mask}"
 
