@@ -59,6 +59,9 @@ class ipv4FWDRule(Rule):
         self.Keys = ["hdr.ipv4.dstAddr"]
         self.ActionArgs = ["nxt_hop", "port"]
         dstIpToWrite = (dstIp.GetIpWithMask(), dstIp.GetIpWithMask(True))
+        if dstIp.mask == 24:
+            dst_tuple = (f"{dstIp.network}.0", dstIp.mask)
+            dstIpToWrite = (f"{dstIp.network}.0/{dstIp.mask}", dst_tuple)
         self.values = {"hdr.ipv4.dstAddr": dstIpToWrite, "nxt_hop": dstIp.GetIp(), "port": Port}
         self.hasPrio = False
         self.IsSettingDefault = False
@@ -100,7 +103,11 @@ class icmpRule(Rule):
         self.ActionName = "MyIngress.reply_to_icmp"
         self.Keys = ["hdr.ipv4.dstAddr"]
         self.ActionArgs = []
-        self.values = {"hdr.ipv4.dstAddr": selfAddr.GetIp()}
+        selfIpTuple = (selfAddr.GetIpWithMask(), selfAddr.GetIpWithMask(True))
+        if selfAddr.mask == 24:
+            dst_tuple = (f"{selfAddr.network}.1", 32)
+            selfIpTuple = (f"{selfAddr.network}.1/{32}", dst_tuple)
+        self.values = {"hdr.ipv4.dstAddr": selfIpTuple}
         self.hasPrio = True
         self.IsSettingDefault = False
     def __str__(self):
@@ -117,6 +124,12 @@ class packetDirectionRule(Rule):
         self.ActionArgs = ["dir"]
         srcIpToWrite = (firstIP.GetNetworkTernaryFormat(), firstIP.GetNetworkTernaryFormat(True))
         dstIpToWrite = (secondIP.GetNetworkTernaryFormat(), secondIP.GetNetworkTernaryFormat(True))
+        if (srcIpToWrite[1][1] == "0.0.0.0"):
+            srcIpToWrite_TMP = (srcIpToWrite[1][0],"255.0.0.0")
+            srcIpToWrite = (srcIpToWrite[0],srcIpToWrite_TMP)
+        if (dstIpToWrite[1][1] == "0.0.0.0"):
+            dstIpToWrite_TMP = (dstIpToWrite[1][0],"255.0.0.0")
+            dstIpToWrite = (dstIpToWrite[0],dstIpToWrite_TMP)
         self.values = {"hdr.ipv4.srcAddr": srcIpToWrite, "hdr.ipv4.dstAddr": dstIpToWrite, "dir": direction}
         self.hasPrio = True
         self.IsSettingDefault = False

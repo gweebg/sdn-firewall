@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 import argparse
 import os
+import subprocess
 import sys
 from time import sleep
+
+from termcolor import colored
 
 import grpc
 
@@ -59,34 +62,6 @@ class TechController:
         r.MasterArbitrationUpdate()
         r.SetForwardingPipelineConfig(p4info=self.p4info_helper.p4info,
                                       bmv2_json_file_path=self.bmv2_file)
-        
-        ## reset_state
-        ## table_set_default ipv4_lpm drop
-        ## table_set_default dst_mac drop
-        ## table_set_default src_mac drop
-        ## table_set_default check_controlled_networks set_return_allowed
-
-        """r.WriteTableEntry(self.p4info_helper.buildTableEntry(
-            table_name="ipv4_lpm",
-            default_action=True,
-            action_name="MyIngress.drop"
-        ))
-        r.WriteTableEntry(self.p4info_helper.buildTableEntry(
-            table_name="dst_mac",
-            default_action=True,
-            action_name="MyIngress.drop"
-        ))
-        r.WriteTableEntry(self.p4info_helper.buildTableEntry(
-            table_name="src_mac",
-            default_action=True,
-            action_name="MyIngress.drop"
-        ))
-        r.WriteTableEntry(self.p4info_helper.buildTableEntry(
-            table_name="check_controlled_networks",
-            default_action=True,
-            action_name="MyEgress.set_return_allowed"
-        ))
-        """
         return r
     
     def printCounter(self, router: str, counter_name: str, index: int):
@@ -113,7 +88,7 @@ class TechController:
                     print(f'{p.value}', end=' ')
                 print()
 
-    def injectRule(self, rule: Rule, router: str):
+    def injectRule(self, rule: Rule, router: str, inject_anyways: bool = False, verbose: bool = False, debug: bool = False):            
         try:
             r = self.routers[router]
             action_params = {rule.ActionArgs[i]: rule.values[rule.ActionArgs[i]][1] if type(rule.values[rule.ActionArgs[i]]) is tuple else rule.values[rule.ActionArgs[i]] for i in range(len(rule.ActionArgs))}
@@ -122,114 +97,43 @@ class TechController:
                     table_name=rule.TableName,
                     action_name=rule.ActionName,
                     action_params=action_params,
-                    default_action=True)
+                    default_action=True,
+                    priority=1 if rule.hasPrio else None)
             else:
                 match_fields = {rule.Keys[i]: rule.values[rule.Keys[i]][1] if type(rule.values[rule.Keys[i]]) is tuple else rule.values[rule.Keys[i]] for i in range(len(rule.Keys))}
-                if "hdr.ipv4.protocol" in match_fields:
-                    match_fields["hdr.ipv4.protocol"] = int(match_fields["hdr.ipv4.protocol"], 16) # Fix firewall issues
+                if "hdr.ipv4.protocol" in match_fields.keys():
+                    match_fields["hdr.ipv4.protocol"] = int(match_fields["hdr.ipv4.protocol"],16)
+                action_params = None if len(action_params.keys()) == 0 else action_params
                 table_entry = self.p4info_helper.buildTableEntry(
                     table_name=rule.TableName,
                     match_fields=match_fields,
                     action_name=rule.ActionName,
                     action_params=action_params,
-                    priority=1 if rule.hasPrio else None)
+                    priority=1 if rule.hasPrio else None)                
             try:
                 self.runtime_connections[router].WriteTableEntry(table_entry)
+                if debug:
+                    print(table_entry)
+                if verbose:
+                    print(colored(f"Rule {type(rule)} {rule} injected.", "green"))
             except Exception as e:
-                print(f"\nTable: {rule.TableName}\nMatch: {match_fields}\nAction: {rule.ActionName}\nAction Params: {action_params}\nPriority: {1 if rule.hasPrio else None}\n")
-                print(table_entry)
-                raise e
+                if not inject_anyways:
+                    raise e
+                else:
+                    if verbose:
+                        print(colored(f"Rule {type(rule)} {rule} failed. Trying to inject it manually.", "light_red"))
+                    result = subprocess.run(f"echo {rule} | simple_switch_CLI --thrift-port {r.thrift_port}", shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                    if verbose:
+                        if result.returncode != 0:
+                            print(colored(f"Rule {type(rule)} {rule} failed to inject manually.", "red", attrs=['bold']))
+                        else:
+                            print(colored(f"Rule {type(rule)} {rule} injected manually.", "blue", attrs=['bold']))
+                ## If the rule fails to inject, inject it manually and raise the exception, the table entry will be out of sync with the controller
             return True
         except Exception as e:
-            print(f"Error {e}")
-            print(f"{router} {type(rule)} {rule} failed")
-            print("-" * 75)
-            return False
-
-    ## table_add ipv4_lpm ipv4_fwd 10.0.1.10/32 => 10.0.1.10 1
-    def injectFwdRules(self, router: str, table_name: str, action_name: str):
-        try:
-            r = self.routers[router]
-            for l in r.linksL3.values():
-                remotePort: PortL3 = l.getOtherPortFromLocalName(r.nodeName)
-                mask = 24 if remotePort.ip.host == 1 else 32
-                strIp = remotePort.ip.getCompleteIp()
-                if mask == 24:
-                    strIp = remotePort.ip.network + '.0'
-                table_entry = self.p4info_helper.buildTableEntry(
-                    table_name=table_name,
-                    match_fields={
-                        "hdr.ipv4.dstAddr": (strIp, mask)
-                    },
-                    action_name=action_name,
-                    action_params={
-                        "nxt_hop": strIp,
-                        "port": l.ports[r.nodeName].portId,
-                    })
-                self.runtime_connections[router].WriteTableEntry(table_entry)
-            return True
-        except Exception as e:
-            print(e)
-            return False
-
-    ##table_add fwall_rules RulesSuccess {rule.srcIp.GetCompleteTernaryFormat()} {rule.dstIp.GetCompleteTernaryFormat()} {rule.protocol} {rule.Port} 1 1
-    def injectFwallRules(self, router: str, table_name: str, action_name: str):
-        try:
-            router_ = self.routers[router]
-            for rule in router_.rules:
-                table_entry = self.p4info_helper.buildTableEntry(
-                    table_name=table_name,
-                    match_fields={
-                        "hdr.ipv4.srcAddr": rule.srcIp.GetCompleteTernaryFormat(),
-                        "hdr.ipv4.dstAddr": rule.dstIp.GetCompleteTernaryFormat(),
-                        "hdr.ipv4.protocol": int(rule.protocol, 16),
-                        "hdr.ports.dstPort": rule.Port
-                    },
-                    action_name=action_name,
-                    action_params={},
-                    priority=1
-                    )
-                self.runtime_connections[router].WriteTableEntry(table_entry)
-            return True
-        except Exception as e:
-            return False
-
-        
-    def injectSrcMacRules(self, router: str, table_name: str, action_name: str):
-        try:
-            for port in self.routers[router].ports.values():
-                table_entry = self.p4info_helper.buildTableEntry(
-                    table_name=table_name,
-                    match_fields={
-                        "standard_metadata.egress_spec": port.portId
-                    },
-                    action_name=action_name,
-                    action_params={
-                        "src_mac": port.mac
-                    })
-                self.runtime_connections[router].WriteTableEntry(table_entry)
-            return True
-        except Exception as e:
-            return False
-
-    def injectDstMacRules(self, router: str, table_name: str, action_name: str):
-        try:
-            for l in self.routers[router].linksL3.values():
-                remotePort: PortL3 = l.getOtherPortFromLocalName(router)
-                mask = 24 if remotePort.ip.host == 1 else 32
-                strIp = remotePort.ip.getCompleteIp()
-                if mask == 24:
-                    strIp = remotePort.ip.network + '.0'
-                table_entry = self.p4info_helper.buildTableEntry(
-                    table_name=table_name,
-                    match_fields={
-                        "meta.next_hop_ipv4": strIp,
-                    },
-                    action_name=action_name,
-                    action_params={
-                        "dst_mac": remotePort.mac
-                    })
-                self.runtime_connections[router].WriteTableEntry(table_entry)
-            return True
-        except Exception as e:
+            if verbose:
+                print(colored(f"Rule {type(rule)} {rule} failed to inject.", "light_red"))
+            if debug:
+                print(f"Error {e}")
+                print("-" * 75)
             return False

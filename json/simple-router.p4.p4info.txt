@@ -120,7 +120,7 @@ tables {
     id: 1
     name: "hdr.ipv4.dstAddr"
     bitwidth: 32
-    match_type: EXACT
+    match_type: LPM
   }
   action_refs {
     id: 31865707

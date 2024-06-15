@@ -1,8 +1,8 @@
 reset_state
 table_set_default MyIngress.EnabledFuncsTable MyIngress.setEnabledFuncs 1 1
-table_add MyIngress.ipv4_lpm MyIngress.ipv4_fwd 10.1.0.1/24 => 10.1.0.1 1
-table_add MyIngress.ipv4_lpm MyIngress.ipv4_fwd 10.2.0.1/24 => 10.2.0.1 1
-table_add MyIngress.ipv4_lpm MyIngress.ipv4_fwd 10.3.0.1/24 => 10.3.0.1 1
+table_add MyIngress.ipv4_lpm MyIngress.ipv4_fwd 10.1.0.0/24 => 10.1.0.1 1
+table_add MyIngress.ipv4_lpm MyIngress.ipv4_fwd 10.2.0.0/24 => 10.2.0.1 1
+table_add MyIngress.ipv4_lpm MyIngress.ipv4_fwd 10.3.0.0/24 => 10.3.0.1 1
 table_add MyIngress.ipv4_lpm MyIngress.ipv4_fwd 10.4.0.10/32 => 10.4.0.10 3
 table_add MyIngress.ipv4_lpm MyIngress.ipv4_fwd 10.4.0.20/32 => 10.4.0.20 2
 table_add MyIngress.ipv4_lpm MyIngress.ipv4_fwd 10.4.0.30/32 => 10.4.0.30 2
@@ -20,4 +20,22 @@ table_add MyIngress.dst_mac MyIngress.rewrite_dst_mac 10.3.0.1 => 00:00:00:01:01
 table_add MyIngress.checkPacketDirection MyIngress.setPacketDirection 10.4.0.0&&&255.255.255.0 10.0.0.0&&&0.0.0.0 => 1 1
 table_add MyIngress.checkPacketDirection MyIngress.setPacketDirection 10.0.0.0&&&0.0.0.0 10.4.0.0&&&255.255.255.0 => 2 1
 table_add MyIngress.checkPacketDirection MyIngress.setPacketDirection 10.0.0.0&&&0.0.0.0 10.0.0.0&&&0.0.0.0 => 3 1
-table_add MyEgress.fwall_rules MyEgress.RulesSuccess 10.1.0.0&&&255.255.255.0 10.4.0.1&&&255.255.255.255 0x06 80 1 1
+table_add MyIngress.self_icmp MyIngress.reply_to_icmp 10.4.0.0/24 1
+table_add MyEgress.ServerLookup MyEgress.setCurrentServer 0 => 10.4.0.10 10.4.0.1 1
+table_add MyEgress.ServerLookup MyEgress.setCurrentServer 1 => 10.4.0.10 10.4.0.1 2
+table_add MyEgress.ServerLookup MyEgress.setCurrentServer 2 => 10.4.0.10 10.4.0.1 3
+table_add MyEgress.ServerLookup MyEgress.setCurrentServer 3 => 10.4.0.10 10.4.0.1 4
+table_add MyEgress.ServerLookup MyEgress.setCurrentServer 4 => 10.4.0.10 10.4.0.1 5
+table_add MyEgress.ServerLookup MyEgress.setCurrentServer 5 => 10.4.0.20 10.4.0.1 6
+table_add MyEgress.ServerLookup MyEgress.setCurrentServer 6 => 10.4.0.20 10.4.0.1 7
+table_add MyEgress.ServerLookup MyEgress.setCurrentServer 7 => 10.4.0.30 10.4.0.1 8
+table_add MyEgress.ServerLookup MyEgress.setCurrentServer 8 => 10.4.0.30 10.4.0.1 9
+table_add MyEgress.ServerLookup MyEgress.setCurrentServer 9 => 10.4.0.30 10.4.0.1 10
+table_add MyEgress.ServerLookup MyEgress.setCurrentServer 10 => 10.4.0.30 10.4.0.1 11
+table_add MyEgress.ServerLookup MyEgress.setCurrentServer 11 => 10.4.0.30 10.4.0.1 12
+table_add MyEgress.ServerLookup MyEgress.setCurrentServer 12 => 10.4.0.30 10.4.0.1 13
+table_add MyEgress.ServerLookup MyEgress.setCurrentServer 13 => 10.4.0.30 10.4.0.1 14
+table_add MyEgress.ServerLookup MyEgress.setCurrentServer 14 => 10.4.0.30 10.4.0.1 15
+table_add MyEgress.ServerLookup MyEgress.setCurrentServer 15 => 10.4.0.40 10.4.0.1 0
+table_add MyEgress.fwall_rules MyEgress.RulesSuccess 10.1.0.0&&&255.255.255.0 10.4.0.1&&&255.255.255.255 0x06 80 => 85 1
+table_add MyEgress.privateToPublicPort MyEgress.setPublicPort 85 => 80

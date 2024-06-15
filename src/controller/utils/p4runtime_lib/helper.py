@@ -76,7 +76,7 @@ class P4InfoHelper(object):
     def get_match_field(self, table_name, name=None, id=None):
         for t in self.p4info.tables:
             pre = t.preamble
-            if pre.name == table_name or pre.alias == table_name:
+            if pre.name == table_name:
                 for mf in t.match_fields:
                     if name is not None:
                         if mf.name == name:
@@ -137,7 +137,7 @@ class P4InfoHelper(object):
     def get_action_param(self, action_name, name=None, id=None):
         for a in self.p4info.actions:
             pre = a.preamble
-            if pre.name == action_name or pre.alias == action_name:
+            if pre.name == action_name:
                 for p in a.params:
                     if name is not None:
                         if p.name == name:

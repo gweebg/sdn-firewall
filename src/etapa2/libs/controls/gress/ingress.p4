@@ -94,11 +94,10 @@ control MyIngress(inout headers hdr,
 
     table self_icmp {
         key = {
-            hdr.ipv4.dstAddr : exact;
+            hdr.ipv4.dstAddr : lpm;
         }
         actions = {
-            reply_to_icmp;
-            NoAction;
+            reply_to_icmp; NoAction;
         }
         default_action = NoAction;
     }

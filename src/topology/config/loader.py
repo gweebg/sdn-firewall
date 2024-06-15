@@ -171,7 +171,7 @@ class Router(NodeL3):
                 mask = 32 if network.NATted and stage>1 else 24
                 fwdIp = IP(ipToCopy.networkId, ipToCopy.host, mask)
                 if (ipToCopy.host == 1 and mask == 24):
-                    fwdIp = IP(ipToCopy.networkId, 0, mask)
+                    fwdIp = IP(ipToCopy.networkId, ipToCopy.host, mask)
                 res.append(rules.ipv4FWDRule(fwdIp, forwardingLink.ports[self.nodeName].portId))
         return res
 
@@ -202,7 +202,8 @@ class Router(NodeL3):
         return res
 
     def genICMPRules(self) -> rules.icmpRule:
-        return rules.icmpRule(self.ip)
+        ipToCopy = IP(self.ip.networkId, self.ip.host, 32)
+        return rules.icmpRule(ipToCopy)
 
     def genPacketDirectionRules(self) -> list[rules.packetDirectionRule]:
         wildcardIP = IP(0, 0, mask=0)
@@ -417,4 +418,6 @@ def getState(path: str, stage: int) -> State:
     state = State(network, stage)
     return state
 
-print(getState("./config/network.yml", 2))
+
+if __name__ == "__main__":
+    print(getState("./config/network.yml", 2))

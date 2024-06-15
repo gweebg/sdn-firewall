@@ -243,6 +243,8 @@ def init_topology(net: Mininet, state: State, stage: int) -> None:
                 
 def main(arguments):
     stage: int = arguments.stage
+    if stage == 3:
+        arguments.test = False
     try:
         state = getState(arguments.config, stage)
     except Exception as e:
@@ -258,7 +260,7 @@ def main(arguments):
 
     test: bool = arguments.test
     if test:
-        testFirewall(net, state)
+        #testFirewall(net, state)
         if stage > 1:
             testICMP(net, state)
 

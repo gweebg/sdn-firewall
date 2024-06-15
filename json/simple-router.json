@@ -1340,7 +1340,7 @@
       ]
     },
     {
-      "name" : "ingress117",
+      "name" : "ingress116",
       "id" : 13,
       "runtime_data" : [],
       "primitives" : [
@@ -1368,7 +1368,7 @@
           ],
           "source_info" : {
             "filename" : "src/etapa2/libs/controls/gress/ingress.p4",
-            "line" : 117,
+            "line" : 116,
             "column" : 24,
             "source_fragment" : "return"
           }
@@ -5597,13 +5597,13 @@
           },
           "key" : [
             {
-              "match_type" : "exact",
+              "match_type" : "lpm",
               "name" : "hdr.ipv4.dstAddr",
               "target" : ["ipv4", "dstAddr"],
               "mask" : null
             }
           ],
-          "match_type" : "exact",
+          "match_type" : "lpm",
           "type" : "simple",
           "max_size" : 1024,
           "with_counters" : false,
@@ -5624,11 +5624,11 @@
           }
         },
         {
-          "name" : "tbl_ingress117",
+          "name" : "tbl_ingress116",
           "id" : 4,
           "source_info" : {
             "filename" : "src/etapa2/libs/controls/gress/ingress.p4",
-            "line" : 117,
+            "line" : 116,
             "column" : 24,
             "source_fragment" : "return"
           },
@@ -5640,10 +5640,10 @@
           "support_timeout" : false,
           "direct_meters" : null,
           "action_ids" : [13],
-          "actions" : ["ingress117"],
+          "actions" : ["ingress116"],
           "base_default_next" : "node_12",
           "next_tables" : {
-            "ingress117" : "node_12"
+            "ingress116" : "node_12"
           },
           "default_entry" : {
             "action_id" : 13,
@@ -5772,7 +5772,7 @@
           "id" : 0,
           "source_info" : {
             "filename" : "src/etapa2/libs/controls/gress/ingress.p4",
-            "line" : 107,
+            "line" : 106,
             "column" : 12,
             "source_fragment" : "hdr.ipv4.isValid()"
           },
@@ -5795,7 +5795,7 @@
           "id" : 1,
           "source_info" : {
             "filename" : "src/etapa2/libs/controls/gress/ingress.p4",
-            "line" : 108,
+            "line" : 107,
             "column" : 16,
             "source_fragment" : "meta.AlreadyTranslated != 1"
           },
@@ -5821,7 +5821,7 @@
           "id" : 2,
           "source_info" : {
             "filename" : "src/etapa2/libs/controls/gress/ingress.p4",
-            "line" : 111,
+            "line" : 110,
             "column" : 20,
             "source_fragment" : "meta.packetDirection < 3"
           },
@@ -5847,7 +5847,7 @@
           "id" : 3,
           "source_info" : {
             "filename" : "src/etapa2/libs/controls/gress/ingress.p4",
-            "line" : 112,
+            "line" : 111,
             "column" : 24,
             "source_fragment" : "hdr.icmp.isValid() && hdr.icmp.type==8"
           },
@@ -5890,7 +5890,7 @@
           "id" : 4,
           "source_info" : {
             "filename" : "src/etapa2/libs/controls/gress/ingress.p4",
-            "line" : 116,
+            "line" : 115,
             "column" : 24,
             "source_fragment" : "meta.EnabledNAT == 1 && meta.AlreadyTranslated != 1"
           },
@@ -5928,7 +5928,7 @@
               }
             }
           },
-          "true_next" : "tbl_ingress117",
+          "true_next" : "tbl_ingress116",
           "false_next" : "node_12"
         },
         {
