@@ -15,7 +15,8 @@ from mininet.topo import Topo
 from mininet.clean import Cleanup
 
 # User defined libraries
-from config.loader import getState, State, Host, Router, Switch, PortL3, Rule, IP
+from config.loader import getState, State, Host, Router, Switch, PortL3, FirewallRule
+from CustomIP.IP import IP
 from p4.mininet import P4Host, P4Switch
 from autotest.test import testFirewall, testICMP
 
@@ -43,8 +44,9 @@ class TechSecure(Topo):
         hosts: list[Host] = self.__state.hosts.values()
         for host in hosts:
             host_mac = host.ports[1].mac
+            print(host.ip.GetIpWithMask())
             self.__hosts[host.nodeName] = self.addHost(
-                host.nodeName, cls=self.CLS_DICT["P4Host"], ip=host.ip.getCompleteIpWithMask(), mac=host_mac
+                host.nodeName, cls=self.CLS_DICT["P4Host"], ip=host.ip.GetIpWithMask(), mac=host_mac
             )
 
     def __setup_switches(self):
@@ -58,7 +60,7 @@ class TechSecure(Topo):
         routers: list[Router] = self.__state.routers.values()
         for router_ in routers:
             ips = {}
-            ips["ip1"] = router_.ip.getCompleteIpWithMask()
+            ips["ip1"] = router_.ip.GetIpWithMask()
             self.__routers[router_.nodeName] = self.addSwitch(
                 router_.nodeName,
                 cls=self.CLS_DICT["P4Switch"],
@@ -81,9 +83,9 @@ class TechSecure(Topo):
             param1 = {}
             param2 = {}
             if isinstance(port1, PortL3):
-                param1["ip"] = port1.ip.getCompleteIpWithMask()
+                param1["ip"] = port1.ip.GetIpWithMask()
             if isinstance(port2, PortL3):
-                param2["ip"] = port2.ip.getCompleteIpWithMask()
+                param2["ip"] = port2.ip.GetIpWithMask()
             self.addLink(
                 tmp_dict[deviceName1],
                 tmp_dict[deviceName2],
@@ -107,12 +109,12 @@ def injectDstMacRules(router: Router) -> str:
     localPortToRemoteMac: dict[int, str] = {}
     for l in router.linksL3.values():
         remotePort: PortL3 = l.getOtherPortFromLocalName(router.nodeName)
-        res += f"table_add dst_mac rewrite_dst_mac {remotePort.ip.getCompleteIp()} => {remotePort.mac}\n"
-        generatedIps.add(remotePort.ip.getCompleteIp())
+        res += f"table_add dst_mac rewrite_dst_mac {remotePort.ip.GetIp()} => {remotePort.mac}\n"
+        generatedIps.add(remotePort.ip.GetIp())
         localPortToRemoteMac[l.ports[router.nodeName].portId] = remotePort.mac
     for l in router.forwardingLinks.values():
         remotePort: PortL3 = l.getOtherPortFromLocalName(router.nodeName)
-        remIP = remotePort.ip.getCompleteIp()
+        remIP = remotePort.ip.GetIp()
         if not remIP in generatedIps:
             res += f"table_add dst_mac rewrite_dst_mac {remIP} => {localPortToRemoteMac[l.ports[router.nodeName].portId]}\n"
             generatedIps.add(remIP)
@@ -128,10 +130,10 @@ def injectIPV4FwdRules(router: Router, state: State, stage: int) -> str:
             links = [(nl3Name, nl3.linksL3[router.nodeName]) for nl3Name, nl3 in network.nodesl3.items() if nl3Name != router.nodeName]
             for remoteName, l3 in links:
                 remotePort: PortL3 = l3.ports[remoteName]
-                res += genSingleRuleForForwarding(remotePort.ip.getCompleteIp(), 32, l3.ports[router.nodeName].portId)
+                res += genSingleRuleForForwarding(remotePort.ip.GetIp(), 32, l3.ports[router.nodeName].portId)
         else:
             forwardingLink = router.forwardingLinks[netID]
-            remoteIP = forwardingLink.getOtherPortFromLocalName(router.nodeName).ip.getCompleteIp()
+            remoteIP = forwardingLink.getOtherPortFromLocalName(router.nodeName).ip.GetIp()
             mask = 32 if network.NATted and stage>1 else 24
             res += genSingleRuleForForwarding(remoteIP, mask, forwardingLink.ports[router.nodeName].portId)
     return res
@@ -140,30 +142,30 @@ def injectFwallRules(router: Router, stage: int) -> str:
     res = "table_set_default fwall drop\n"
     for rule in router.rules:
         if stage > 1:
-            res += f"table_add fwall_rules RulesSuccess {rule.srcIp.GetCompleteTernaryFormat()} {rule.dstIp.GetCompleteTernaryFormat()} {rule.protocol} {rule.Port} => {rule.LocalPort} 1\n"
+            res += f"table_add fwall_rules RulesSuccess {rule.srcIp.GetTernaryFormat()} {rule.dstIp.GetTernaryFormat()} {rule.protocol} {rule.Port} => {rule.LocalPort} 1\n"
             res += f"table_add privateToPublicPort setPublicPort {rule.LocalPort} => {rule.Port}\n"
         else:
-            res += f"table_add fwall_rules RulesSuccess {rule.srcIp.GetCompleteTernaryFormat()} {rule.dstIp.GetCompleteTernaryFormat()} {rule.protocol} {rule.Port} 1 1\n"
+            res += f"table_add fwall_rules RulesSuccess {rule.srcIp.GetTernaryFormat()} {rule.dstIp.GetTernaryFormat()} {rule.protocol} {rule.Port} 1 1\n"
     return res
 
 def injectPacketDirectionRules(router:Router) -> str:
     wildcardIP = IP(0, 0, mask=0)
-    wildcardIPStr = wildcardIP.getNetworkTernaryFormat()
-    routerIPStr = router.ip.getNetworkTernaryFormat()
+    wildcardIPStr = wildcardIP.GetNetworkTernaryFormat()
+    routerIPStr = router.ip.GetNetworkTernaryFormat()
     res = f"table_add MyIngress.checkPacketDirection setPacketDirection {routerIPStr} {wildcardIPStr} => 1 1\n"
     res += f"table_add MyIngress.checkPacketDirection setPacketDirection  {wildcardIPStr} {routerIPStr} => 2 1\n"
     res += f"table_add MyIngress.checkPacketDirection setPacketDirection  {wildcardIPStr} {wildcardIPStr} => 3 1\n"
     return res
 
 def injectNatRules(router: Router, state: State) -> str:
-    publicIp = router.ip.getCompleteIp()
+    publicIp = router.ip.GetIp()
     serverId = 0
     res = f""
     hosts = state.networks[router.network].hosts.values()
     maxServerID = sum([h.weight for h in hosts]) - 1
     for host in state.networks[router.network].hosts.values():
         w = host.weight
-        hIP = host.ip.getCompleteIp()
+        hIP = host.ip.GetIp()
         while w > 0:
             nextServerId = serverId+1
             if maxServerID <= serverId or maxServerID == 1:
@@ -190,7 +192,7 @@ def generateCommandsForRouterEtapa2(router: Router, state: State) -> str:
     res += injectIPV4FwdRules(router, state, 2) + "\n"
     res += injectSrcMacRules(router) + "\n"
     res += injectDstMacRules(router) + "\n"
-    res += f"table_add self_icmp reply_to_icmp {router.ip.getCompleteIp()} 1\n"
+    res += f"table_add self_icmp reply_to_icmp {router.ip.GetIp()} 1\n"
     res += injectPacketDirectionRules(router) + "\n"
     if natted:
         res += injectNatRules(router, state) + "\n"
@@ -210,11 +212,7 @@ def init_topology(net: Mininet, state: State, stage: int) -> None:
         match node.macDeviceType:
             case 1: # Router
                 r: Router = node
-                match stage:
-                    case 1:
-                        writeCommands(r, generateCommandsForRouterEtapa1(r, state))
-                    case 2:
-                        writeCommands(r, generateCommandsForRouterEtapa2(r, state))
+                writeCommands(r, r.getTableEntriesInText())
                 # mn_node.cmd(f"simple_switch_CLI --thrift-port {mn_node.thrift_port} < src/p4/commands/{mn_node.name}.txt")
                 mn_node.cmd(f"simple_switch_CLI --thrift-port {mn_node.thrift_port} < config/{mn_node.name}.txt")
                 print(f"{mn_node.name}:injected autogenerated config/{mn_node.name}.txt into router '{mn_node.name}'")
@@ -222,11 +220,11 @@ def init_topology(net: Mininet, state: State, stage: int) -> None:
                 h: Host = node
                 for otherNodeName, linkl3 in h.linksL3.items():
                     otherPort: PortL3 = linkl3.getOtherPortFromLocalName(h.nodeName)
-                    mn_node.setARP(otherPort.ip.getCompleteIp(), otherPort.mac)
-                    log = f"{h.nodeName}:set ARP for {otherPort.ip.getCompleteIp()} to {otherPort.mac}"
+                    mn_node.setARP(otherPort.ip.GetIp(), otherPort.mac)
+                    log = f"{h.nodeName}:set ARP for {otherPort.ip.GetIp()} to {otherPort.mac}"
                     if state.networks[h.network].gateway == otherNodeName:
-                        mn_node.setDefaultRoute("dev eth0 via " + otherPort.ip.getCompleteIp())
-                        log += f"    AND    set dev eth0 via {otherPort.ip.getCompleteIp()}"
+                        mn_node.setDefaultRoute("dev eth0 via " + otherPort.ip.GetIp())
+                        log += f"    AND    set dev eth0 via {otherPort.ip.GetIp()}"
                     print(log)
             case 3: # Switch
                 mn_node.cmd(f"ovs-ofctl add-flow {mn_node.name} action=normal")
@@ -235,8 +233,9 @@ def init_topology(net: Mininet, state: State, stage: int) -> None:
 
                 
 def main(arguments):
+    stage: int = arguments.stage
     try:
-        state = getState(arguments.config)
+        state = getState(arguments.config, stage)
     except Exception as e:
         print(f"Error: {e}")
         return
@@ -247,7 +246,6 @@ def main(arguments):
     net = Mininet(topo=topology, controller=None)
     net.start()
 
-    stage: int = arguments.stage
     init_topology(net, state, stage)
 
     test: bool = arguments.test

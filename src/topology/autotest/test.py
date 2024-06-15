@@ -1,7 +1,8 @@
 
 from threading import Thread
-from config.loader import State, Rule, Host, Router, IP
+from config.loader import State, FirewallRule, Host, Router
 from mininet.net import Mininet
+from CustomIP.IP import IP
 
 def serverCMD(dstNode, command, globalRes):
     result = dstNode.cmd(command)
@@ -14,7 +15,7 @@ def getHostsList(s: State, ip: IP) -> list[Host]:
     else:
         return [s.getHostByIP(ip)]
         
-def testRule(mnet: Mininet, s:State, r: Rule):
+def testRule(mnet: Mininet, s:State, r: FirewallRule):
     udpFlag = "-u" if r.protocol == "0x11" else ""
     dstHosts = getHostsList(s, r.dstIp)
     srcHosts = getHostsList(s, r.srcIp)
@@ -22,8 +23,8 @@ def testRule(mnet: Mininet, s:State, r: Rule):
     for h in dstHosts:
         dstNode = mnet.get(h.nodeName)
         serverCommand = f"nc -nl {r.Port} {udpFlag} -v"
-        clientCommand = f"nc -z {h.ip.getCompleteIp()} {r.Port} {udpFlag} -w 2 -v"
-        clientWrongCommand = f"nc {h.ip.getCompleteIp()} {r.Port+1} {udpFlag} -w 2 -v"
+        clientCommand = f"nc -z {h.ip.GetIp()} {r.Port} {udpFlag} -w 2 -v"
+        clientWrongCommand = f"nc {h.ip.GetIp()} {r.Port+1} {udpFlag} -w 2 -v"
         serverResult = []
         print(f"{h.nodeName} running nc server: {serverCommand}")
         for sH in srcHosts:
@@ -63,7 +64,7 @@ def testICMP(mnet: Mininet, s: State):
     for _, network in s.networks.items():
         for router in network.routers.values():
             print(f"===Testing ICMP for {router.nodeName}===")
-            rIp = router.ip.getCompleteIp()
+            rIp = router.ip.GetIp()
             command = f"ping {rIp} -c 5 | grep received"
             for hName in network.hosts:
                 hNode = mnet.get(hName)
