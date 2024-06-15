@@ -28,12 +28,13 @@ class TechSecure(Topo):
         "OVSKernelSwitch": OVSKernelSwitch,
     }
 
-    def __init__(self, state: State, **opts):
+    def __init__(self, state: State, stage: int,  **opts):
 
         self.__state = state
         self.__hosts = {}
         self.__switches = {}
         self.__routers = {}
+        self.stage = stage
         Topo.__init__(self, **opts)
 
         self.__setup_hosts()
@@ -59,14 +60,17 @@ class TechSecure(Topo):
 
     def __setup_routers(self):
         routers: list[Router] = self.__state.routers.values()
+        clsToUse = self.CLS_DICT["P4RuntimeSwitch"] if self.stage == 3 else self.CLS_DICT["P4Switch"]
+        bvmodel = "simple_switch_grpc" if self.stage == 3 else "simple_switch"
         for router_ in routers:
+            jPath = router_.json_path if self.stage != 3 else None
             ips = {}
             ips["ip1"] = router_.ip.GetIpWithMask()
             self.__routers[router_.nodeName] = self.addSwitch(
                 router_.nodeName,
-                cls=self.CLS_DICT["P4RuntimeSwitch"],
-                sw_path=router_.bvmodel,
-                json_path=None,
+                cls=clsToUse,
+                sw_path=bvmodel,
+                json_path=jPath,
                 thrift_port=router_.thrift_port,
                 grpc_port=router_.grpc_port,
                 cpu_port=router_.cpu_port,
@@ -245,7 +249,7 @@ def main(arguments):
         return
 
     Cleanup.cleanup() 
-    topology = TechSecure(state)
+    topology = TechSecure(state, stage)
 
     net = Mininet(topo=topology, controller=None)
     net.start()
